@@ -61,6 +61,7 @@ if(WIN32) # ERICEDIT: If the OS is Windows:
         ${EXECUTABLE_OUTPUT_PATH}/ManifestBuilder.exe
         ${EXECUTABLE_OUTPUT_PATH}/piggtool.exe
         ${EXECUTABLE_OUTPUT_PATH}/slav.exe
+        ${EXECUTABLE_OUTPUT_PATH}/segc.exe
         )
     find_program(WINDEPLOYQT_EXECUTABLE NAMES windeployqt HINTS ${Qt_binary_location} ENV Qt_binary_location) # ERICEDIT: Find windeployqt for use in finding dependencies.
     add_custom_command( # ERICEDIT: After building the executables, use windeployqt to transfer all dependencies to the output directory.
@@ -72,5 +73,6 @@ if(WIN32) # ERICEDIT: If the OS is Windows:
         COMMAND ${WINDEPLOYQT_EXECUTABLE} ${EXECUTABLE_OUTPUT_PATH}/ManifestBuilder.exe
         COMMAND ${WINDEPLOYQT_EXECUTABLE} ${EXECUTABLE_OUTPUT_PATH}/piggtool.exe
         COMMAND ${WINDEPLOYQT_EXECUTABLE} ${EXECUTABLE_OUTPUT_PATH}/slav.exe
+        COMMAND ${WINDEPLOYQT_EXECUTABLE} ${EXECUTABLE_OUTPUT_PATH}/segc.exe
         )
 endif()

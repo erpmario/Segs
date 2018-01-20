@@ -19,7 +19,6 @@
 //////////////////////////////////////////////////////////////////////////
 
 #include <ace/ACE.h>
-#include <ace/ACE.h>
 #include <ace/Singleton.h>
 #include <ace/Null_Mutex.h>
 #include <ace/Log_Record.h>
@@ -30,7 +29,6 @@
 #include <ace/Reactor.h>
 #include <ace/TP_Reactor.h>
 #include <ace/INET_Addr.h>
-#include <ace/Reactor.h>
 #include <ace/OS_main.h> //Included to enable file logging
 #include <ace/streams.h> //Included to enable file logging
 
@@ -46,6 +44,7 @@
 #include <memory>
 namespace
 {
+static bool s_event_loop_is_done=false; //!< this is set to true when ace reactor is finished.
 ACE_THR_FUNC_RETURN event_loop (void *arg)
 {
     ACE_Reactor *reactor = static_cast<ACE_Reactor *>(arg);
@@ -53,6 +52,7 @@ ACE_THR_FUNC_RETURN event_loop (void *arg)
     reactor->run_reactor_event_loop ();
     ServerManager::instance()->StopLocalServers();
     ServerManager::instance()->GetAdminServer()->ShutDown("No reason");
+    s_event_loop_is_done = true;
     return (ACE_THR_FUNC_RETURN)nullptr;
 }
 bool CreateServers()
@@ -172,6 +172,10 @@ ACE_INT32 ACE_TMAIN (int argc, ACE_TCHAR *argv[])
         ACE_Reactor::close_singleton();
         return -1;
     }
+    // process all queued qt messages here.
+    while( !s_event_loop_is_done )
+        QCoreApplication::processEvents();
+
     ACE_Thread_Manager::instance()->wait();
     ACE_Reactor::close_singleton();
     return 0;

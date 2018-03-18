@@ -7,7 +7,8 @@
  */
 
 //#define DEBUG_INPUT
-//#define DEBUG_INPUT2
+//#define DEBUG_ORIENTATION
+//#define DEBUG_TARGET
 #define _USE_MATH_DEFINES
 #include "Events/InputState.h"
 #include "Entity.h"
@@ -33,37 +34,43 @@ void InputState::serializeto(BitStream &) const
 }
 InputStateStorage &InputStateStorage::operator =(const InputStateStorage &other)
 {
-    m_csc_deltabits=other.m_csc_deltabits;
-    m_send_deltas=other.m_send_deltas;
-    controlBits=other.controlBits;
-    send_id=other.send_id;
-    m_time_diff1=other.m_time_diff1;
-    m_time_diff2=other.m_time_diff2;
-    has_input_commit_guess=other.has_input_commit_guess;
+    m_csc_deltabits             = other.m_csc_deltabits;
+    m_send_deltas               = other.m_send_deltas;
+    controlBits                 = other.controlBits;
+    send_id                     = other.send_id;
+    m_time_diff1                = other.m_time_diff1;
+    m_time_diff2                = other.m_time_diff2;
+    has_input_commit_guess      = other.has_input_commit_guess;
     m_received_server_update_id = other.m_received_server_update_id;
-    m_no_coll = other.m_no_coll;
+    m_no_coll                   = other.m_no_coll;
+    m_controls_disabled         = other.m_controls_disabled;
 
     for(int i=0; i<3; ++i)
     {
         if(other.pos_delta_valid[i])
             pos_delta[i] = other.pos_delta[i];
-            
-        if(0==other.m_orientation_pyr[i])
-            m_orientation_pyr[i] = other.m_orientation_pyr[i];
     }
     bool update_needed=false;
     for(int i=0; i<3; ++i)
     {
         if(other.pyr_valid[i])
-        {
             camera_pyr[i] = other.camera_pyr[i];
+
+        if(other.m_orientation_pyr[i])
+        {
+#ifdef DEBUG_ORIENTATION
+    qDebug() << other.m_orientation_pyr[i];
+#endif
+            m_orientation_pyr[i] = other.m_orientation_pyr[i];
             update_needed = true;
         }
     }
     if(update_needed)
-    {
-        direction = fromCoHYpr(m_orientation_pyr);
-    }
+        m_direction = fromCoHYpr(m_orientation_pyr);
+
+#ifdef DEBUG_ORIENTATION
+    qDebug() << m_direction.w << m_direction.x << m_direction.y << m_direction.z;
+#endif
     return *this;
 }
 
@@ -71,7 +78,9 @@ void InputStateStorage::processDirectionControl(int dir,int prev_time,int press_
 {
     if(press_release)
     {
+#ifdef DEBUG_INPUT
         fprintf(stderr,"pressed\n");
+#endif
         switch(dir)
         {
             case 0: pos_delta[2] = 1.0f; break; //FORWARD
@@ -142,7 +151,7 @@ void InputState::partial_2(BitStream &bs)
                 v = AngleDequantize(bs.GetBits(11),11); // pitch
                 m_data.pyr_valid[control_id==6] = true;
                 m_data.camera_pyr[0] = v;
-#ifdef DEBUG_INPUT2
+#ifdef DEBUG_INPUT
                 fprintf(stderr,"Pitch (%f): %f \n", m_data.m_orientation_pyr[0], m_data.camera_pyr.x);
 #endif
                 break;
@@ -152,14 +161,14 @@ void InputState::partial_2(BitStream &bs)
                 v = AngleDequantize(bs.GetBits(11),11); // yaw
                 m_data.pyr_valid[control_id==7] = true;
                 m_data.camera_pyr[1] = v;
-#ifdef DEBUG_INPUT2
+#ifdef DEBUG_INPUT
                 fprintf(stderr,"Yaw (%f): %f \n", m_data.m_orientation_pyr[1], m_data.camera_pyr.y);
 #endif
                 break;
             }
             case 8:
             {
-                bool controls_disabled = bs.GetBits(1);
+                m_data.m_controls_disabled = bs.GetBits(1);
                 if ( m_data.m_send_deltas )
                 {
                     m_data.m_time_diff1=bs.GetPackedBits(8);   // value - previous_value
@@ -215,11 +224,11 @@ void InputState::extended_input(BitStream &bs)
     if(m_data.controlBits)
         fprintf(stderr,"E input %x : ",m_data.controlBits);
 #endif
-    if(bs.GetBits(1))//if ( abs(s_prevTime - ms_time) < 1000 )
+    if(bs.GetBits(1)) //if ( abs(s_prevTime - ms_time) < 1000 )
     {
         m_data.m_orientation_pyr[0] = AngleDequantize(bs.GetBits(11),11); //pak->SendBits(11, control_state.field_1C[0]);
         m_data.m_orientation_pyr[1] = AngleDequantize(bs.GetBits(11),11); //pak->SendBits(11, control_state.field_1C[1]);
-#ifdef DEBUG_INPUT
+#ifdef DEBUG_ORIENTATION
         fprintf(stderr,"%f : %f",m_data.m_orientation_pyr[0],m_data.m_orientation_pyr[1]);;
 #endif
     }
@@ -280,13 +289,13 @@ void InputState::serializefrom(BitStream &bs)
     if(bs.GetBits(1))
         extended_input(bs);
 
-    bool has_targeted_entity = bs.GetBits(1);
-    m_targeted_entity_idx = bs.GetPackedBits(14); // targeted entity server index
+    m_has_target = bs.GetBits(1);
+    m_target_idx = bs.GetPackedBits(14); // targeted entity server_index
     int ctrl_idx=0;
-#ifdef DEBUG_INPUT
-    fprintf(stderr,"T:[%d]",has_targeted_entity);
-    if(has_targeted_entity)
-        fprintf(stderr,"TI:[%d]",tgt_idx);
+#ifdef DEBUG_TARGET
+    fprintf(stderr,"T:[%d] ",m_has_target);
+    if(m_has_target)
+        fprintf(stderr,"TI:[%d] ",m_target_idx);
 #endif
     ControlState prev_fld;
     while(bs.GetBits(1)) // receive control state array entries ?

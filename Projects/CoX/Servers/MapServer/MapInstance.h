@@ -40,14 +40,17 @@ class MapServer;
 class SEGSTimer;
 class InputState;
 class World;
+class UnqueueAll;
+class TargetChatChannelSelected;
+class ActivateInspiration;
+class PowersDockMode;
+class SwitchTray;
 
 class MapInstance : public EventProcessor
 {
-    std::unique_ptr<ScriptingEngine> m_scripting_interface;
     QString                m_name;
     SEGSTimer *            m_world_update_timer;
     SEGSTimer *            m_resend_timer;
-    ClientStore<MapClient> m_clients;
 
     // vClients        m_queued_clients;
     World *    m_world;
@@ -55,6 +58,9 @@ class MapInstance : public EventProcessor
 
 public:
     EntityManager m_entities;
+    ClientStore<MapClient> m_clients;
+
+    std::unique_ptr<ScriptingEngine> m_scripting_interface;
 
     MapInstance(const QString &name);
     virtual ~MapInstance();
@@ -65,9 +71,10 @@ public:
     void   start();
     void   set_server(MapServer *s) { m_server = s; }
     size_t num_active_clients();
+    const QString &     name() const { return m_name; }
 
 protected:
-    void process_chat(MapClient *sender, const QString &msg_text);
+    void process_chat(MapClient *sender, QString &msg_text);
 
     void on_expect_client(ExpectMapClient *ev);
     void on_link_lost(SEGSEvent *ev);
@@ -102,7 +109,12 @@ protected:
     void on_chat_reconfigured(class ChatReconfigure *ev);
     void on_switch_viewpoint(class SwitchViewPoint *ev);
     void on_client_settings(class ClientSettings *ev);
+    void on_unqueue_all(class UnqueueAll *ev);
+    void on_target_chat_channel_selected(class TargetChatChannelSelected *ev);
+    void on_activate_inspiration(class ActivateInspiration *ev);
+    void on_powers_dockmode(class PowersDockMode *ev);
+    void on_switch_tray(class SwitchTray *ev);
 
 private:
-    void on_emote_command(QString lowerContents, Entity *ent, MapClient *src);
+    void on_emote_command(QString lowerContents, Entity *ent);
 };

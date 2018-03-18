@@ -12,6 +12,8 @@
 #include "Common/Servers/ServerEndpoint.h"
 #include "GameLink.h"
 #include "Common/Servers/GameServerInterface.h"
+#include "Entity.h"
+#include "MapServer/EntityStorage.h"
 
 #include <string>
 #include <memory>
@@ -37,7 +39,7 @@ class GameServer : public IGameServer
 public:
                                 ~GameServer(void);
                                 GameServer(void);
-        bool                    ReadConfig(const QString &configpath) override;
+        bool                    ReadConfig() override;
         bool                    Run(void) override;
         bool                    ShutDown(const QString &reason="No particular reason") override;
         void                    Online(bool s );

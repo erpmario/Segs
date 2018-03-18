@@ -96,6 +96,7 @@ void serialize_char_full_update(const Entity &src, BitStream &bs )
     src.m_char.sendFullStats(bs); //Entity::receiveFullStats(&FullStatsTokens, pak, FIXEDOFFSET_pchar, pkt_id_fullAttrDef, 1);
     PUTDEBUG("PlayerEntity::serialize_full before sendBuffs");
     sendBuffs(src,bs); //FIXEDOFFSET_pchar->character_ReceiveBuffs(pak,0);
+
     PUTDEBUG("PlayerEntity::serialize_full before sidekick");
     bool has_sidekick=false;
     bs.StoreBits(1,has_sidekick);
@@ -111,17 +112,18 @@ void serialize_char_full_update(const Entity &src, BitStream &bs )
     PUTDEBUG("before traymode");
     player_char.sendTrayMode(bs);
 
-    bs.StoreString(src.name()); // maxlength 32
-    bs.StoreString(src.m_battle_cry); //max 128
-    bs.StoreString(src.m_character_description); //max 1024
+    bs.StoreString(src.name());                     // maxlength 32
+    bs.StoreString(getBattleCry(player_char));      //max 128
+    bs.StoreString(getDescription(player_char));    //max 1024
     PUTDEBUG("before windows");
     player_char.sendWindows(bs);
-    bs.StoreBits(1,0); // lfg related
-    bs.StoreBits(1,0); // SG mode
+    bs.StoreBits(1,player_char.m_char_data.m_lfg);              // lfg related
+    bs.StoreBits(1,player_char.m_char_data.m_using_sg_costume); // SG mode
     player_char.sendTeamBuffMode(bs);
     player_char.sendDockMode(bs);
     player_char.sendChatSettings(bs);
-    player_char.sendTitles(bs);
+    player_char.sendTitles(bs,NameFlag::NoName,ConditionalFlag::Unconditional); // NoName, we already sent it above.
+
     player_char.sendDescription(bs);
     uint8_t auth_data[]={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
     PUTDEBUG("before auth data");
@@ -256,12 +258,13 @@ void storePowerInfoUpdate(const EntitiesResponse &/*src*/,BitStream &bs)
 }
 void sendServerControlState(const EntitiesResponse &src,BitStream &bs)
 {
-    glm::vec3 spd(1,1,1);
     glm::vec3 zeroes;
-    bool m_flying=false;
-    bool m_dazed=false;
     // user entity
     Entity *ent = src.m_client->char_entity();
+
+    bool update_part_1  = ent->u1;       // default: true;
+    bool update_part_2  = ent->u2;       // default: false;
+
     SurfaceParams surface_params[2];
     memset(&surface_params,0,2*sizeof(SurfaceParams));
     surface_params[0].traction = 1.5f;
@@ -269,60 +272,60 @@ void sendServerControlState(const EntitiesResponse &src,BitStream &bs)
     surface_params[0].bounce = 1.5f;
     surface_params[1].max_speed = surface_params[0].max_speed = 1.5f;
     surface_params[1].gravitational_constant = surface_params[0].gravitational_constant = 3.0f;
-    uint8_t update_id=1;
-    bool update_part_1=true;
-    bool update_part_2=false;
+
     bs.StoreBits(1,update_part_1);
     if(update_part_1)
     {
         //rand()&0xFF
-        bs.StoreBits(8,update_id);
+        bs.StoreBits(8,ent->m_update_id);
         // after input_send_time_initialized, this value is enqueued as CSC_9's control_flags
         // This is entity speed vector !!
-        storeVector(bs,spd);
+        storeVector(bs,ent->m_spd);
 
-        bs.StoreFloat(1.0f); // speed rel back
+        bs.StoreFloat(ent->m_backup_spd);         // Backup Speed default = 1.0f
         bs.StoreBitArray((uint8_t *)&surface_params,2*sizeof(SurfaceParams)*8);
-        bs.StoreFloat(0.1f);
-        bs.StoreBits(1,m_flying); // key push bits ??
-        bs.StoreBits(1,m_dazed); // key push bits ??
-        bs.StoreBits(1,0); // key push bits ??
-        bs.StoreBits(1,0); // key push bits ??
-        bs.StoreBits(1,0); // key push bits ??
-        bs.StoreBits(1,0); // key push bits ??
+
+        bs.StoreFloat(ent->m_jump_height);        // How high entity goes before gravity bring them back down. Set by leaping default = 0.1f
+        bs.StoreBits(1,ent->m_is_flying);         // is_flying flag
+        bs.StoreBits(1,ent->m_is_stunned);        // is_stunned flag (lacks overhead 'dizzy' FX)
+        bs.StoreBits(1,ent->m_has_jumppack);      // jumpack flag (lacks costume parts)
+
+        bs.StoreBits(1,ent->m_controls_disabled); // if 1/true entity anims stop, can still move, but camera stays. Slipping on ice?
+        bs.StoreBits(1,ent->m_is_jumping);        // leaping? seems like the anim changes slightly?
+        bs.StoreBits(1,ent->m_is_sliding);        // sliding? default = 0
     }
     // Used to force the client to a position/speed/pitch/rotation by server
     bs.StoreBits(1,update_part_2);
     if(update_part_2)
     {
-        bs.StorePackedBits(1,0); // sets g_client_pos_id_rel
-        storeVector(bs,spd);
-        storeVectorConditional(bs,zeroes);  // vector3 -> speed ? likely
+        bs.StorePackedBits(1,ent->inp_state.m_received_server_update_id); // sets g_client_pos_id_rel default = 0
+        storeVector(bs,ent->m_entity_data.pos);         // server-side pos
+        storeVectorConditional(bs,ent->m_spd);          // server-side spd (optional)
 
         storeFloatConditional(bs,0); // Pitch not used ?
-        storeFloatConditional(bs,ent->inp_state.camera_pyr.y); // Yaw
+        storeFloatConditional(bs,ent->m_entity_data.m_orientation_pyr.y); // Yaw
         storeFloatConditional(bs,0); // Roll
-        bs.StorePackedBits(1,0); // server side forced falling bit
+        bs.StorePackedBits(1,ent->m_is_falling); // server side forced falling bit
+
+        ent->u2 = 0; // run once
     }
 }
 void sendServerPhysicsPositions(const EntitiesResponse &src,BitStream &bs)
 {
     Entity * target = src.m_client->char_entity();
-    bool full_update = true;
-    bool has_control_id = true;
 
-    bs.StoreBits(1,full_update);
-    if( !full_update )
-        bs.StoreBits(1,has_control_id);
+    bs.StoreBits(1,target->m_full_update);
+    if( !target->m_full_update )
+        bs.StoreBits(1,target->m_has_control_id);
 #ifdef LOG_
     fprintf(stderr,"Phys: send %d ",target->m_input_ack);
 #endif
-    if( full_update || has_control_id)
+    if( target->m_full_update || target->m_has_control_id)
         bs.StoreBits(16,target->m_input_ack); //target->m_input_ack
-    if(full_update)
+    if(target->m_full_update)
     {
         for(int i=0; i<3; ++i)
-            bs.StoreFloat(target->pos[i]); // server position
+            bs.StoreFloat(target->m_entity_data.pos[i]); // server position
         for(int i=0; i<3; ++i)
             storeFloatConditional(bs,target->vel[i]);
     }
@@ -361,13 +364,13 @@ void sendClientData(const EntitiesResponse &src,BitStream &bs)
     storeTeamList(src,bs);
     storeSuperStats(src,bs);
     storeGroupDyn(src,bs);
-    bool additional=false;
+    bool additional = ent->u3; // used to force the client camera direction
     bs.StoreBits(1,additional);
     if(additional)
     {
-        bs.StoreFloat(0.1f);
-        bs.StoreFloat(0.2f); // camera_yaw
-        bs.StoreFloat(0.3f);
+        bs.StoreFloat(ent->inp_state.camera_pyr.p); // force camera_pitch
+        bs.StoreFloat(ent->inp_state.camera_pyr.y); // force camera_yaw
+        bs.StoreFloat(ent->inp_state.camera_pyr.r); // force camera_roll
     }
 }
 }
@@ -385,7 +388,6 @@ EntitiesResponse::EntitiesResponse(MapClient *cl) :
     m_interpolation_level = 2;
     m_interpolation_bits=1;
     //m_interpolation_level
-
 }
 void EntitiesResponse::serializeto( BitStream &tgt ) const
 {
@@ -438,4 +440,3 @@ void EntitiesResponse::serializeto( BitStream &tgt ) const
         command->serializeto(tgt);
     tgt.StorePackedBits(1,0); // finalize the command list
 }
-

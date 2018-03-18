@@ -17,6 +17,7 @@ SET(target_CPP
     Events/PlaqueVisited.cpp
     Events/NewEntity.cpp
     Events/SceneEvent.cpp
+    Events/InfoMessageCmd.cpp
     MapClient.cpp
     MapEventFactory.cpp
     MapInstance.cpp
@@ -26,6 +27,7 @@ SET(target_CPP
     MapServerData.cpp
     MapTemplate.cpp
     NetCommandManager.cpp
+    SlashCommand.cpp
     WorldSimulation.cpp
     ${SCRIPTING_CPP}
 )
@@ -55,9 +57,11 @@ SET(target_INCLUDE
     MapManager.h
     MapRef.h
     MapServer.h
+    MapServerData.h
     MapTemplate.h
     NetCommandManager.h
     ScriptingEngine.h
+    SlashCommand.h
     WorldSimulation.h
 )
 

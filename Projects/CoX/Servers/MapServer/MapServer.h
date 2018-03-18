@@ -11,6 +11,8 @@
 
 #include "Common/Servers/MapServerInterface.h"
 #include "Common/Servers/ServerEndpoint.h"
+#include "GameServer/GameServer.h"
+//#include "Entity.h"
 #include "MapLink.h"
 
 #include <memory>
@@ -42,7 +44,7 @@ public:
                                 ~MapServer(void) override;
 
         bool                    Run(void) override;
-        bool                    ReadConfig(const QString &name) override;
+        bool                    ReadConfig() override;
 
         bool                    ShutDown(const QString &reason="No particular reason") override;
         void                    Online(bool s);

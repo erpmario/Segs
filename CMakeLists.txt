@@ -15,11 +15,11 @@ add_definitions(-D__STDC_FORMAT_MACROS)
 SET(MAIN_INCLUDE_PATH ${PROJECT_SOURCE_DIR}/3rd_party/include CACHE PATH "Includes")
 SET(MAIN_LIB_PATH ${PROJECT_SOURCE_DIR}/3rd_party/lib CACHE PATH "Libraries")
 SET(EXECUTABLE_OUTPUT_PATH ${CMAKE_BINARY_DIR}/out) # ERICEDIT: Changed the output directory to the build directory rather than source.
-
+SET(CMAKE_INSTALL_PREFIX ${CMAKE_BINARY_DIR}/out)
 SET(CMAKE_INCLUDE_PATH ${MAIN_INCLUDE_PATH})
 SET(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/CMakeScripts;${CMAKE_MODULE_PATH})
 SET(UNICODE TRUE)
-
+set(INSTALLED_TARGETS)
 OPTION(ENABLE_SCRIPTING_ENGINE "Build experimental scripting engine ?" OFF)
 OPTION(ENABLE_TESTS "Enable testing unit and functional tests" OFF)
 OPTION(BUILD_COX_MAP_VIEWER "Build CoX map file viewer ?" OFF)
@@ -87,4 +87,8 @@ add_subdirectory(Components)
 add_subdirectory(Utilities)
 add_subdirectory(Projects)
 file(MAKE_DIRECTORY ${EXECUTABLE_OUTPUT_PATH}/data)
+<<<<<<< HEAD
 # pls
+=======
+
+>>>>>>> upstream/master

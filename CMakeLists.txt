@@ -87,3 +87,42 @@ add_subdirectory(Components)
 add_subdirectory(Utilities)
 add_subdirectory(Projects)
 file(MAKE_DIRECTORY ${EXECUTABLE_OUTPUT_PATH}/data)
+
+########################################################################################
+# DLL Transfers
+########################################################################################
+if(WIN32) # ERICEDIT: If the OS is Windows:
+    get_target_property(QtCore_location_Release Qt5::Core LOCATION_Release) # ERICEDIT: Get the direct location of Qt5Core.dll.
+    get_filename_component(Qt_binary_location ${QtCore_location_Release} DIRECTORY) # ERICEDIT: Remove the file name and let the directory remain.
+    add_custom_target( # ERICEDIT: Add a target that depends on all the executable files built by SEGS.
+        execTargets ALL
+        DEPENDS ${EXECUTABLE_OUTPUT_PATH}/authserver.exe
+        ${EXECUTABLE_OUTPUT_PATH}/binConverter.exe
+        ${EXECUTABLE_OUTPUT_PATH}/dbtool.exe
+        ${EXECUTABLE_OUTPUT_PATH}/ManifestBuilder.exe
+        ${EXECUTABLE_OUTPUT_PATH}/piggtool.exe
+        ${EXECUTABLE_OUTPUT_PATH}/slav.exe
+        )
+    find_program(WINDEPLOYQT_EXECUTABLE NAMES windeployqt HINTS ${Qt_binary_location} ENV Qt_binary_location) # ERICEDIT: Find windeployqt for use in finding dependencies.
+    add_custom_command( # ERICEDIT: After building the executables, use windeployqt to transfer all dependencies to the output directory.
+        TARGET execTargets
+        POST_BUILD
+        COMMAND ${WINDEPLOYQT_EXECUTABLE} ${EXECUTABLE_OUTPUT_PATH}/authserver.exe
+        COMMAND ${WINDEPLOYQT_EXECUTABLE} ${EXECUTABLE_OUTPUT_PATH}/binConverter.exe
+        COMMAND ${WINDEPLOYQT_EXECUTABLE} ${EXECUTABLE_OUTPUT_PATH}/dbtool.exe
+        COMMAND ${WINDEPLOYQT_EXECUTABLE} ${EXECUTABLE_OUTPUT_PATH}/ManifestBuilder.exe
+        COMMAND ${WINDEPLOYQT_EXECUTABLE} ${EXECUTABLE_OUTPUT_PATH}/piggtool.exe
+        COMMAND ${WINDEPLOYQT_EXECUTABLE} ${EXECUTABLE_OUTPUT_PATH}/slav.exe
+        )
+    if(BUILD_COX_MAP_VIEWER)
+        add_custom_target(
+            mapViewerTarget ALL
+            DEPENDS ${EXECUTABLE_OUTPUT_PATH}/mapviewer.exe
+            )
+        add_custom_command(
+            TARGET mapViewerTarget
+            POST_BUILD
+            COMMAND ${WINDEPLOYQT_EXECUTABLE} --release ${EXECUTABLE_OUTPUT_PATH}/mapviewer.exe
+            )
+    endif()
+endif()

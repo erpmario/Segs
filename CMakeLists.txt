@@ -87,8 +87,3 @@ add_subdirectory(Components)
 add_subdirectory(Utilities)
 add_subdirectory(Projects)
 file(MAKE_DIRECTORY ${EXECUTABLE_OUTPUT_PATH}/data)
-<<<<<<< HEAD
-# pls
-=======
-
->>>>>>> upstream/master

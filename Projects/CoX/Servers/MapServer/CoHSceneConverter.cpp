@@ -48,6 +48,7 @@ void rotationFromYPR(glm::mat3x4 & mat, const Vector3 &pyr)
     float   cos_r     =  std::cos(pyr.z_);
     float   neg_sin_r = -std::sin(pyr.z_);
     float   tmp       =  cos_y * neg_sin_p;
+    // ERICEDIT: Doesn't seem like the auxiliary rotmat is needed for the glm-ified version.
     //glm::mat3 rotmat;
     mat[0][0] = cos_r * cos_y - neg_sin_y * neg_sin_p * neg_sin_r;
     mat[0][1] = neg_sin_r * cos_p;
@@ -420,7 +421,11 @@ void addRoot(CoHSceneGraph &conv,const SceneRootNode_Data &refload, NameList &na
     auto ref = newRef(conv);
     ref->node = def;
     rotationFromYPR(ref->mat,{refload.rot.x,refload.rot.y,refload.rot.z});
-    ref->mat.SetTranslation(Vector3(&refload.pos[0]));
+    // ERICEDIT: Convert code from Urho3D to glm.
+    ref->mat[0][3] = refload.pos[0];
+    ref->mat[1][3] = refload.pos[1];
+    ref->mat[2][3] = refload.pos[2];
+    //ref->mat.SetTranslation(Vector3(&refload.pos[0]));
 }
 void PostProcessScene(SceneGraph_Data &scenegraph,CoHSceneGraph &conv,NameList &renamer,const QString &name)
 {

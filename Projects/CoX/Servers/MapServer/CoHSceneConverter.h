@@ -60,7 +60,7 @@ struct CoHNode
 };
 struct ConvertedRootNode
 {
-    Urho3D::Matrix3x4 mat;
+    glm::mat3x4 mat; // ERICEDIT: Change from Lutefisk3D to glm.
     CoHNode *node = nullptr;
     uint32_t index_in_roots_array=0;
 

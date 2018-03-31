@@ -8,16 +8,16 @@
 #include "GameData/scenegraph_definitions.h"
 #include "GameData/trick_definitions.h"
 
-#include <Lutefisk3D/Core/Context.h>
-#include <Lutefisk3D/Graphics/StaticModel.h>
-#include <Lutefisk3D/Graphics/Texture.h>
-#include <Lutefisk3D/Math/BoundingBox.h>
-#include <Lutefisk3D/Math/Matrix3x4.h>
-#include <Lutefisk3D/Resource/Image.h>
-#include <Lutefisk3D/Resource/ResourceCache.h>
-#include <Lutefisk3D/Scene/Node.h>
-#include <Lutefisk3D/UI/Font.h>
-#include <Lutefisk3D/UI/Text3D.h>
+//#include <Lutefisk3D/Core/Context.h>
+//#include <Lutefisk3D/Graphics/StaticModel.h>
+//#include <Lutefisk3D/Graphics/Texture.h>
+//#include <Lutefisk3D/Math/BoundingBox.h>
+//#include <Lutefisk3D/Math/Matrix3x4.h>
+//#include <Lutefisk3D/Resource/Image.h>
+//#include <Lutefisk3D/Resource/ResourceCache.h>
+//#include <Lutefisk3D/Scene/Node.h>
+//#include <Lutefisk3D/UI/Font.h>
+//#include <Lutefisk3D/UI/Text3D.h>
 
 #include <QtCore/QDebug>
 #include <QtCore/QDir>
@@ -39,7 +39,7 @@ static NameList my_name_list;
 
 bool groupFileLoadFromName(CoHSceneGraph &conv,const QString &a1);
 
-void rotationFromYPR(Matrix3x4 & mat, const Vector3 &pyr)
+void rotationFromYPR(glm::mat3x4 & mat, const Vector3 &pyr)
 {
     float   cos_p     =  std::cos(pyr.x_);
     float   neg_sin_p = -std::sin(pyr.x_);
@@ -48,17 +48,17 @@ void rotationFromYPR(Matrix3x4 & mat, const Vector3 &pyr)
     float   cos_r     =  std::cos(pyr.z_);
     float   neg_sin_r = -std::sin(pyr.z_);
     float   tmp       =  cos_y * neg_sin_p;
-    Matrix3 rotmat;
-    rotmat.m00_ = cos_r * cos_y - neg_sin_y * neg_sin_p * neg_sin_r;
-    rotmat.m01_ = neg_sin_r * cos_p;
-    rotmat.m02_ = tmp * neg_sin_r + cos_r * neg_sin_y;
-    rotmat.m10_ = -(neg_sin_r * cos_y) - neg_sin_y * neg_sin_p * cos_r;
-    rotmat.m11_ = cos_r * cos_p;
-    rotmat.m12_ = tmp * cos_r - neg_sin_r * neg_sin_y;
-    rotmat.m20_ = -(neg_sin_y * cos_p);
-    rotmat.m21_ = -neg_sin_p;
-    rotmat.m22_ = cos_y * cos_p;
-    mat.SetRotation(rotmat);
+    //glm::mat3 rotmat;
+    mat[0][0] = cos_r * cos_y - neg_sin_y * neg_sin_p * neg_sin_r;
+    mat[0][1] = neg_sin_r * cos_p;
+    mat[0][2] = tmp * neg_sin_r + cos_r * neg_sin_y;
+    mat[1][0] = -(neg_sin_r * cos_y) - neg_sin_y * neg_sin_p * cos_r;
+    mat[1][1] = cos_r * cos_p;
+    mat[1][2] = tmp * cos_r - neg_sin_r * neg_sin_y;
+    mat[2][0] = -(neg_sin_y * cos_p);
+    mat[2][1] = -neg_sin_p;
+    mat[2][2] = cos_y * cos_p;
+    //mat.SetRotation(rotmat);
 }
 
 CoHNode *newDef(CoHSceneGraph &scene)
@@ -470,57 +470,57 @@ bool loadSceneGraph(CoHSceneGraph &conv,const QString &path)
     PostProcessScene(scenegraph,conv,my_name_list,path);
     return true;
 }
-extern int created_node_count;
-//TODO: convert this from recursive function into iterative one.
-Urho3D::Node * convertedNodeToLutefisk(CoHNode *conv_node, const Urho3D::Matrix3x4 &mat, Context *ctx, int depth, int opt)
-{
+//extern int created_node_count;
+////TODO: convert this from recursive function into iterative one.
+//Urho3D::Node * convertedNodeToLutefisk(CoHNode *conv_node, const Urho3D::Matrix3x4 &mat, Context *ctx, int depth, int opt)
+//{
     
-    ResourceCache* cache = ctx->m_ResourceCache.get();
-    Urho3D::Node * node = new Node(ctx);
-    created_node_count++;
-    node->SetName(conv_node->name);
-    node->SetTransform(mat);
-    conv_node->m_lutefisk_result = node;
-    if(conv_node->model)
-    {
-        //assert(def->children.empty());
-        StaticModel* conv_model = convertedModelToLutefisk(ctx,node,conv_node,opt);
-        if(!conv_model)
-        {
-            delete node;
-            return nullptr;
-        }
-        node->SetVar("CoHNode",conv_node);
-        node->SetVar("CoHModel",conv_node->model);
-        // some nodes contain both a model and children nodes
-        //return node;
-    }
+//    ResourceCache* cache = ctx->m_ResourceCache.get();
+//    Urho3D::Node * node = new Node(ctx);
+//    created_node_count++;
+//    node->SetName(conv_node->name);
+//    node->SetTransform(mat);
+//    conv_node->m_lutefisk_result = node;
+//    if(conv_node->model)
+//    {
+//        //assert(def->children.empty());
+//        StaticModel* conv_model = convertedModelToLutefisk(ctx,node,conv_node,opt);
+//        if(!conv_model)
+//        {
+//            delete node;
+//            return nullptr;
+//        }
+//        node->SetVar("CoHNode",conv_node);
+//        node->SetVar("CoHModel",conv_node->model);
+//        // some nodes contain both a model and children nodes
+//        //return node;
+//    }
 
-    if (depth > 0)
-    {
-        node->SetVar("CoHNode",conv_node);
-        for(NodeChild &d : conv_node->children)
-        {
-            //this is used to reject models for farther lods
-            if(d.m_def->model && d.m_def->lod_near!=0.0f)
-                continue;
-            Urho3D::Node *newNode = convertedNodeToLutefisk(d.m_def, d.m_matrix, ctx, depth - 1,opt); // recursive call
-            if (newNode)
-                node->AddChild(newNode);
-        }
-        return node;
-    }
-    if (depth == 0)
-    { /*
-        auto    boxTextNode = node->CreateChild("BoxText");
-        Text3D *boxText     = boxTextNode->CreateComponent<Text3D>();
-        boxText->SetText(QString("Group %1\n(%2)").arg(conv_node->name).arg(mat.Translation().ToString()));
-        boxText->SetFont(cache->GetResource<Font>("Fonts/BlueHighway.sdf"), 18);
-        boxText->SetColor(Color::RED);
-        boxText->SetFaceCameraMode(FC_ROTATE_Y);*/
-    }
-    return node;
-}
+//    if (depth > 0)
+//    {
+//        node->SetVar("CoHNode",conv_node);
+//        for(NodeChild &d : conv_node->children)
+//        {
+//            //this is used to reject models for farther lods
+//            if(d.m_def->model && d.m_def->lod_near!=0.0f)
+//                continue;
+//            Urho3D::Node *newNode = convertedNodeToLutefisk(d.m_def, d.m_matrix, ctx, depth - 1,opt); // recursive call
+//            if (newNode)
+//                node->AddChild(newNode);
+//        }
+//        return node;
+//    }
+//    if (depth == 0)
+//    { /*
+//        auto    boxTextNode = node->CreateChild("BoxText");
+//        Text3D *boxText     = boxTextNode->CreateComponent<Text3D>();
+//        boxText->SetText(QString("Group %1\n(%2)").arg(conv_node->name).arg(mat.Translation().ToString()));
+//        boxText->SetFont(cache->GetResource<Font>("Fonts/BlueHighway.sdf"), 18);
+//        boxText->SetColor(Color::RED);
+//        boxText->SetFaceCameraMode(FC_ROTATE_Y);*/
+//    }
+//    return node;
+//}
 
 
 

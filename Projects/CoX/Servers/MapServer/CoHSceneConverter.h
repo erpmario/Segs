@@ -75,5 +75,5 @@ struct CoHSceneGraph
 };
 bool loadSceneGraph(CoHSceneGraph &conv,const QString &path);
 
-Urho3D::Node * convertedNodeToLutefisk(CoHNode *def, const Urho3D::Matrix3x4 & mat, Urho3D::Context *ctx, int depth, int opt=CONVERT_MINIMAL);
+//Urho3D::Node * convertedNodeToLutefisk(CoHNode *def, const Urho3D::Matrix3x4 & mat, Urho3D::Context *ctx, int depth, int opt=CONVERT_MINIMAL);
 

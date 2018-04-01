@@ -27,7 +27,7 @@
 #include "Database.h"
 #include "SlashCommand.h"
 #include "Common/GameData/CoHMath.h"
-#include "CoHSceneConverter.h"
+#include "MapLoader/CoHSceneConverter.h"
 
 #include <QtCore/QDebug>
 #include <QtCore/QFile>
@@ -84,7 +84,7 @@ void MapInstance::start()
     m_world_update_timer = new SEGSTimer(this,(void *)World_Update_Timer,world_update_interval,false); // world simulation ticks
     m_resend_timer = new SEGSTimer(this,(void *)State_Transmit_Timer,resend_interval,false); // state broadcast ticks
     CoHSceneGraph * scene = new CoHSceneGraph;
-    loadSceneGraph(*scene, "C:\SEGS Dev\build-master-erpmario-Desktop_Qt_5_10_0_MinGW_32bit-Debug-MapViewer\out\exploded pigg-bits\geobin\object_library\Buildings\Style\deco\Deco1\Deco1.bin");
+    loadSceneGraph(*scene, "C:\\SEGS Dev\\build-master-erpmario-Desktop_Qt_5_10_0_MinGW_32bit-Debug-MapViewer\\out\\exploded pigg-bits\\geobin\\object_library\\Buildings\\Style\\deco\\Deco1\\Deco1.bin");
 }
 
 size_t MapInstance::num_active_clients()

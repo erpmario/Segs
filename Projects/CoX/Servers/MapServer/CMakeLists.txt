@@ -4,7 +4,6 @@ else()
     set(SCRIPTING_CPP ScriptingEngine_Null.cpp)
 endif()
 SET(target_CPP
-    CoHSceneConverter.cpp
     DataHelpers.cpp
     EntityStorage.cpp
     EntityUpdateCodec.cpp
@@ -33,10 +32,6 @@ SET(target_CPP
     ${SCRIPTING_CPP}
 )
 SET(target_INCLUDE
-    CohModelConverter.h
-    CoHModelLoader.h
-    CoHSceneConverter.h
-    CohTextureConverter.h
     DataHelpers.h
     EntityStorage.h
     EntityUpdateCodec.h
@@ -79,7 +74,7 @@ ${target_CPP}
 ${target_INCLUDE}
 )
 ADD_LIBRARY(mapserver_lib STATIC ${target_SOURCES})
-target_link_libraries(mapserver_lib PUBLIC adminserver_lib CRUDP_Protocol)
+target_link_libraries(mapserver_lib PUBLIC adminserver_lib CRUDP_Protocol map_loader)
 qt5_use_modules(mapserver_lib LINK_PUBLIC Core)
 if(ENABLE_SCRIPTING_ENGINE)
     target_compile_definitions(mapserver_lib PUBLIC -DSCRIPTING_ENABLED=1)

@@ -1,3 +1,15 @@
+/*
+ * SEGS - Super Entity Game Server
+ * http://www.segs.io/
+ * Copyright (c) 2006 - 2018 SEGS Team (see Authors.txt)
+ * This software is licensed! (See License.txt for details)
+ */
+
+/*!
+ * @addtogroup AuthExerciser Projects/CoX/Utilities/AuthExerciser
+ * @{
+ */
+
 #include "AuthProtocol/Events/LoginRequest.h"
 #include "AuthProtocol/AuthLink.h"
 #include "DummyClass.h"
@@ -19,6 +31,21 @@
 static uint16_t SERVER_PORT = ACE_DEFAULT_SERVER_PORT;
 static QString const SERVER_HOST = ACE_DEFAULT_SERVER_HOST;
 static const int MAX_ITERATIONS = 4;
+
+struct AuthConnector final : public ACE_Connector<AuthLink, ACE_SOCK_Connector>
+{
+    DummyClass *m_target;
+    int make_svc_handler (AuthLink *&sh) override
+    {
+        if(sh)
+            return 0;
+        if(!m_target)
+            return -1;
+        sh = new AuthLink(m_target,AuthLinkType::Client);
+        sh->reactor (this->reactor ());
+        return 0;
+    }
+};
 
 int main(int argc, char** argv)
 {
@@ -44,11 +71,12 @@ int main(int argc, char** argv)
     uint16_t serverPort = args.length() >= 2 ? args[1].toInt() : SERVER_PORT;
     //int maxIterations = args.length() >= 3 ? args[2].toInt() : MAX_ITERATIONS;
 
-    AuthLink::g_target = new DummyClass();
-    AuthLink::g_target->activate();
+    DummyClass *our_handler = new DummyClass;
+    our_handler->activate();
+    AuthConnector connector;
+    connector.m_target = our_handler;
     ACE_SOCK_Stream server;
-    ACE_Connector<AuthLink, ACE_SOCK_Connector> connector;
-    AuthLink client(AuthLinkType::Client);
+    AuthLink client(our_handler,AuthLinkType::Client);
     AuthLink *pc = &client;
     ACE_INET_Addr addr(serverPort, qPrintable(serverHost));
 
@@ -73,3 +101,5 @@ int main(int argc, char** argv)
 
     return 0;
 }
+
+//! @}

@@ -1,9 +1,8 @@
 /*
- * Super Entity Game Server
- * http://segs.sf.net/
- * Copyright (c) 2006 - 2016 Super Entity Game Server Team (see Authors.txt)
+ * SEGS - Super Entity Game Server
+ * http://www.segs.io/
+ * Copyright (c) 2006 - 2018 SEGS Team (see Authors.txt)
  * This software is licensed! (See License.txt for details)
- *
  */
 
 #pragma once
@@ -13,7 +12,7 @@
 #include <deque>
 #include <list>
 #include <chrono>
-#include <ace/Thread_Mutex.h>
+#include <mutex>
 #include <ace/INET_Addr.h>
 
 template <size_t size>
@@ -58,7 +57,7 @@ private:
         FixedSizePacketQueue<16384> retransmit_queue;
         std::list<uint32_t> recv_acks; // each successful receive will store it's ack here
         hmSibStorage        sibling_map; // we need to lookup mPacketGroup quickly, and insert ordered packets into mPacketGroup
-        ACE_Thread_Mutex    m_packets_mutex;
+        std::mutex          m_packets_mutex;
         bool                m_compression_allowed=false;
         timepoint           m_last_activity;
 
@@ -79,7 +78,7 @@ public:
         void                ReceivedBlock(BitStream &bs); // bytes received, will create some packets in avail_packets
 
         bool                SendPacket(CrudP_Packet *p); // this might split packet 'p' into a few packets
-        CrudP_Packet *      RecvPacket(bool disregard_seq);
+        CrudP_Packet *      RecvPacket();
         bool                batchSend(lCrudP_Packet &tgt);
         bool                isUnresponsiveLink();
 protected:

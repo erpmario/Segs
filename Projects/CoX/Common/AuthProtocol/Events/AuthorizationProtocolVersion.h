@@ -1,3 +1,10 @@
+/*
+ * SEGS - Super Entity Game Server
+ * http://www.segs.io/
+ * Copyright (c) 2006 - 2018 SEGS Team (see Authors.txt)
+ * This software is licensed! (See License.txt for details)
+ */
+
 #pragma once
 #include "AuthProtocol/AuthEvents.h"
 
@@ -8,8 +15,8 @@ class AuthorizationProtocolVersion : public AuthLinkEvent
 public:
                         AuthorizationProtocolVersion() : AuthLinkEvent(evAuthProtocolVersion),m_seed(1),m_proto_vers(0)
                         {}
-                        AuthorizationProtocolVersion(EventProcessor *ev_src,uint32_t version_id,uint32_t seed) :
-                            AuthLinkEvent(evAuthProtocolVersion,ev_src),
+                        AuthorizationProtocolVersion(uint32_t version_id,uint32_t seed) :
+                            AuthLinkEvent(evAuthProtocolVersion),
                             m_seed(seed),
                             m_proto_vers(version_id)
                         {}

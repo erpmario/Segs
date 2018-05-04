@@ -1,12 +1,12 @@
 /*
- * Super Entity Game Server Project
- * http://segs.sf.net/
- * Copyright (c) 2006 - 2016 Super Entity Game Server Team (see Authors.txt)
+ * SEGS - Super Entity Game Server
+ * http://www.segs.io/
+ * Copyright (c) 2006 - 2018 SEGS Team (see Authors.txt)
  * This software is licensed! (See License.txt for details)
- *
  */
+
 #pragma once
-#include "CommonNetStructures.h"
+#include "NetStructures/CommonNetStructures.h"
 
 #include <QtCore/QString>
 #include <string>
@@ -16,10 +16,10 @@ class MapRef
 public:
     int         m_idx;
     bool        reduced_transform;
-    Matrix4x3   m_matrix;
+    glm::mat4x3 m_matrix;
     TransformStruct m_transforms;
     QString m_name;
-    MapRef(int idx,Matrix4x3 &mat,const QString &name) :
+    MapRef(int idx,const glm::mat4x3 &mat,const QString &name) :
         m_idx(idx),
         m_matrix(mat),
         m_name(name)

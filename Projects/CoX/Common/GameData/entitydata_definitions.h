@@ -1,3 +1,10 @@
+/*
+ * SEGS - Super Entity Game Server
+ * http://www.segs.io/
+ * Copyright (c) 2006 - 2018 SEGS Team (see Authors.txt)
+ * This software is licensed! (See License.txt for details)
+ */
+
 #pragma once
 
 #include <QtCore/QString>
@@ -6,9 +13,11 @@
 
 struct EntityData
 {
-    int                 m_access_level              = 0;
-    uint8_t             m_origin_idx                = {0};
-    uint8_t             m_class_idx                 = {0};
-    glm::vec3           pos;
-    glm::vec3           m_orientation_pyr;          // Stored in Radians
+static const constexpr  uint32_t    class_version       = 3;
+                        uint32_t    m_access_level      = 0;
+                        uint8_t     m_origin_idx        = {0};
+                        uint8_t     m_class_idx         = {0};
+                        glm::vec3   m_pos;
+                        glm::vec3   m_orientation_pyr;          // Stored in Radians
+                        uint32_t    m_map_idx           = 1;    // only 1 map instance
 };

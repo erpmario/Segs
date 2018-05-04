@@ -1,9 +1,8 @@
 /*
- * Super Entity Game Server
- * http://segs.sf.net/
- * Copyright (c) 2006 - 2016 Super Entity Game Server Team (see Authors.txt)
+ * SEGS - Super Entity Game Server
+ * http://www.segs.io/
+ * Copyright (c) 2006 - 2018 SEGS Team (see Authors.txt)
  * This software is licensed! (See License.txt for details)
- *
  */
 
 #pragma once
@@ -44,8 +43,10 @@ struct CostumePart
     uint8_t m_type=0; // arms/legs etc..
     bool m_full_part;
 };
-void serializeto(const CostumePart &part, BitStream &bs, ColorAndPartPacker *packingContext);
-void serializefrom(CostumePart &part, BitStream &bs, ColorAndPartPacker *packingContext);
+
+void serializeto(const CostumePart &part, BitStream &bs, const ColorAndPartPacker *packingContext);
+void serializefrom(CostumePart &part, BitStream &bs, const ColorAndPartPacker *packingContext);
+
 struct Costume
 {
     float m_height=0;
@@ -56,7 +57,7 @@ struct Costume
     float m_floats[8];
     std::vector<CostumePart> m_parts;
     uint32_t m_body_type;
-    void storeCharselParts(BitStream &bs);
+    void storeCharselParts(BitStream &bs) const;
     void storeCharsel(BitStream &bs)
     {
         bs.StorePackedBits(1,m_body_type); // 0:male normal
@@ -64,13 +65,14 @@ struct Costume
         bs.StoreFloat(m_physique);
         bs.StoreBits(32,skin_color); // rgb ?
     }
-    void serializeToDb(QString &tgt);
+    void serializeToDb(QString &tgt) const;
     void serializeFromDb(const QString &src);
-    void    dump();
+    void    dump() const;
 protected:
 };
-void serializefrom(Costume &tgt, BitStream &bs, ColorAndPartPacker *packer);
-void serializeto(const Costume &tgt,BitStream &bs, ColorAndPartPacker *packer);
+
+void serializefrom(Costume &tgt, BitStream &bs, const ColorAndPartPacker *packer);
+void serializeto(const Costume &tgt, BitStream &bs, const ColorAndPartPacker *packer);
 
 class CharacterCostume : public Costume
 {

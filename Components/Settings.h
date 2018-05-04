@@ -1,23 +1,17 @@
 /*
- * Super Entity Game Server
- * http://github.com/Segs
- * Copyright (c) 2006 - 2018 Super Entity Game Server Team (see Authors.txt)
+ * SEGS - Super Entity Game Server
+ * http://www.segs.io/
+ * Copyright (c) 2006 - 2018 SEGS Team (see Authors.txt)
  * This software is licensed! (See License.txt for details)
- *
  */
 
 #pragma once
 #include <QSettings>
 #include <QString>
-#include <QTextStream>
-#include <QFile>
-#include <QFileInfo>
-#include <QDebug>
 
-class Settings : public QSettings {
+class Settings {
 
 public:
-    static QSettings*   getSettings();
     static void         setSettingsPath(const QString path);
     static QString      getSettingsPath();
 
@@ -29,7 +23,6 @@ private:
     Settings(Settings const&);
     Settings& operator=(Settings const&);
 
-    static QSettings*   m_settings;
     static QString      m_settings_path;
 };
 

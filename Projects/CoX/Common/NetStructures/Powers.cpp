@@ -1,3 +1,15 @@
+/*
+ * SEGS - Super Entity Game Server
+ * http://www.segs.io/
+ * Copyright (c) 2006 - 2018 SEGS Team (see Authors.txt)
+ * This software is licensed! (See License.txt for details)
+ */
+
+/*!
+ * @addtogroup NetStructures Projects/CoX/Common/NetStructures
+ * @{
+ */
+
 #include "Powers.h"
 
 #include <QDebug>
@@ -76,7 +88,7 @@ void PowerTrayGroup::serializeto(BitStream &tgt) const
     tgt.StoreBits(32,secondary_tray_idx);
     for(int bar_num=0; bar_num<9; bar_num++)
         m_trays[bar_num].serializeto(tgt);
-    bool m_c = false;
+    bool m_c = false; // FixMe: m_c is explicitly set and never later modified.
     tgt.StoreBits(1,m_c);
     if(m_c) // selected ???
     {
@@ -173,3 +185,5 @@ void PowerPool_Info::serializeto(BitStream &src) const
     src.StorePackedBits(3,powerset_entry_idx);
     src.StorePackedBits(3,power_idx);
 }
+
+//! @}

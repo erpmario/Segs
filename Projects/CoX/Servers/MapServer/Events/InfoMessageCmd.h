@@ -1,19 +1,15 @@
 /*
- * Super Entity Game Server Project
- * http://github.com/Segs
- * Copyright (c) 2006 - 2017 Super Entity Game Server Team (see Authors.txt)
+ * SEGS - Super Entity Game Server
+ * http://www.segs.io/
+ * Copyright (c) 2006 - 2018 SEGS Team (see Authors.txt)
  * This software is licensed! (See License.txt for details)
- *
  */
 
 #pragma once
 #include "GameCommandList.h"
 
-#include "MapEvents.h"
-#include "MapLink.h"
-#include "ChatMessage.h" // needed to access MessageChannel enum
-
-#include <QtCore/QString>
+struct MapClientSession;
+class QString;
 
 enum class MessageChannel : int;
 
@@ -32,4 +28,4 @@ public:
     void            serializefrom(BitStream &src);
 };
 
-extern void sendInfoMessage(MessageChannel t, QString msg, MapClient *tgt);
+extern void sendInfoMessage(MessageChannel t, QString msg, MapClientSession *tgt);

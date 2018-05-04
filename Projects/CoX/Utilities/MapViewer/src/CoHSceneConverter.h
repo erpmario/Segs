@@ -1,5 +1,13 @@
+/*
+ * SEGS - Super Entity Game Server
+ * http://www.segs.io/
+ * Copyright (c) 2006 - 2018 SEGS Team (see Authors.txt)
+ * This software is licensed! (See License.txt for details)
+ */
+
 #pragma once
 
+#include "GameData/scenegraph_definitions.h"
 #include <Lutefisk3D/Math/Matrix3x4.h>
 #include <Lutefisk3D/Math/BoundingBox.h>
 #include <Lutefisk3D/Container/Ptr.h>
@@ -10,14 +18,18 @@
 
 #include <vector>
 
-namespace Urho3D {
-class Node;
-class Context;
+namespace Urho3D
+{
+    class Node;
+    class Context;
 };
-enum {
+
+enum
+{
     CONVERT_MINIMAL,
     CONVERT_EDITOR_MARKERS,
 };
+
 enum class CoHBlendMode : uint8_t
 {
     MULTIPLY                = 0,
@@ -29,12 +41,15 @@ enum class CoHBlendMode : uint8_t
     BUMPMAP_COLORBLEND_DUAL = 6,
     INVALID                 = 255,
 };
+
 struct CoHModel;
+
 struct NodeChild
 {
     Urho3D::Matrix3x4 m_matrix;
     struct CoHNode *  m_def = nullptr;
 };
+
 struct CoHNode
 {
     CoHNode *                     parent = nullptr;
@@ -46,6 +61,7 @@ struct CoHNode
     Urho3D::BoundingBox           m_bbox;
     glm::vec3                     center;
     Urho3D::WeakPtr<Urho3D::Node> m_lutefisk_result;
+    std::vector<GroupProperty_Data> *properties = nullptr;
     float                         radius        = 0;
     float                         vis_dist      = 0;
     float                         lod_near      = 0;
@@ -58,14 +74,14 @@ struct CoHNode
     bool                          in_use        = false;
     bool                          lod_fromtrick = false;
 };
+
 struct ConvertedRootNode
 {
-    Urho3D::Matrix3x4 mat;
+    glm::mat4 mat;
     CoHNode *node = nullptr;
     uint32_t index_in_roots_array=0;
-
-
 };
+
 struct CoHSceneGraph
 {
     int last_node_id=0; // used to create new number suffixes for generic nodes
@@ -73,7 +89,7 @@ struct CoHSceneGraph
     std::vector<ConvertedRootNode *> refs;
     QHash<QString,CoHNode *> name_to_node;
 };
+
 bool loadSceneGraph(CoHSceneGraph &conv,const QString &path);
 
 Urho3D::Node * convertedNodeToLutefisk(CoHNode *def, const Urho3D::Matrix3x4 & mat, Urho3D::Context *ctx, int depth, int opt=CONVERT_MINIMAL);
-

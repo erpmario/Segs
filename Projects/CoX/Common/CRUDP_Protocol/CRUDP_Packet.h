@@ -1,18 +1,18 @@
 /*
- * Super Entity Game Server
- * http://segs.sf.net/
- * Copyright (c) 2006 - 2017 Super Entity Game Server Team (see Authors.txt)
+ * SEGS - Super Entity Game Server
+ * http://www.segs.io/
+ * Copyright (c) 2006 - 2018 SEGS Team (see Authors.txt)
  * This software is licensed! (See License.txt for details)
- *
  */
 
 #pragma once
 #include "BitStream.h"
 #include <set>
-#include <list>
+#include <deque>
 #include <vector>
 #include <stdint.h>
 #include <chrono>
+#include <memory>
 
 class PacketCollector;
 static const uint32_t maxPacketSize    = 1472;
@@ -29,7 +29,6 @@ public:
     ~CrudP_Packet();
 
     uint32_t  GetBits(uint32_t nBits);
-    void GetBitArray(uint32_t nBytes, uint8_t *array);
     uint32_t  GetPackedBits(uint32_t nBits);
     void GetString(QString &str);
 
@@ -47,7 +46,7 @@ public:
 
     //  Accessors
     //////////////////////////////////////////////////////////////////////////
-    uint8_t  *  GetBuffer()         const   { return (uint8_t *)m_stream->GetBuffer(); }
+    uint8_t  *  GetBuffer()         const   { return m_stream->GetBuffer(); }
     size_t      GetPacketLength()   const   { return m_stream->GetReadableDataSize();}
     BitStream * GetStream()                 { return m_stream;                      }
     bool        getIsCompressed()   const   { return m_compressed;                  }
@@ -94,6 +93,6 @@ protected:
     uint32_t m_retransmit_count;
     std::set<uint32_t> m_acks;
 };
-using lCrudP_Packet = std::list<CrudP_Packet *>;
+using lCrudP_Packet = std::deque<std::unique_ptr<CrudP_Packet>>;
 using vCrudP_Packet = std::vector<CrudP_Packet *>;
 using ivCrudP_Packet = vCrudP_Packet::iterator;

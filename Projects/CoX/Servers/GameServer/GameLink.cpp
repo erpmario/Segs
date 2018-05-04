@@ -1,15 +1,17 @@
 /*
- * Super Entity Game Server
- * http://segs.sf.net/
- * Copyright (c) 2006 - 2016 Super Entity Game Server Team (see Authors.txt)
+ * SEGS - Super Entity Game Server
+ * http://www.segs.io/
+ * Copyright (c) 2006 - 2018 SEGS Team (see Authors.txt)
  * This software is licensed! (See License.txt for details)
- *
- 
  */
-#include "GameLink.h"
-#include "EventProcessor.h"
-#include "GameEvents.h"
 
-#include <ace/INET_Addr.h>
+/*!
+ * @addtogroup GameServer Projects/CoX/Servers/GameServer
+ * @{
+ */
+
+#include "GameLink.h"
 
 GameEventFactory GameLink::m_factory;
+
+//! @}

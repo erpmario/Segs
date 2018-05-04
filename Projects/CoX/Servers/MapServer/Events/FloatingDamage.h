@@ -1,9 +1,8 @@
 /*
- * Super Entity Game Server Project
- * http://segs.sf.net/
- * Copyright (c) 2006 - 2017 Super Entity Game Server Team (see Authors.txt)
+ * SEGS - Super Entity Game Server
+ * http://www.segs.io/
+ * Copyright (c) 2006 - 2018 SEGS Team (see Authors.txt)
  * This software is licensed! (See License.txt for details)
- *
  */
 
 #pragma once
@@ -19,7 +18,7 @@ class FloatingDamage final : public GameCommand
 public:
     int whos_fault_was_it;
     int who_was_damaged;
-    int damage_amount;
+    int damage_amount; // should be float?
     FloatingDamage(int source,int target,int amount) : GameCommand(MapEventTypes::evFloatingDamage),
         whos_fault_was_it(source),
         who_was_damaged(target),

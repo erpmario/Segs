@@ -1,3 +1,15 @@
+/*
+ * SEGS - Super Entity Game Server
+ * http://www.segs.io/
+ * Copyright (c) 2006 - 2018 SEGS Team (see Authors.txt)
+ * This software is licensed! (See License.txt for details)
+ */
+
+/*!
+ * @addtogroup CRUDP_Protocol Projects/CoX/Common/CRUDP_Protocol
+ * @{
+ */
+
 #include "CRUD_Link.h"
 
 #include "CRUD_Events.h"
@@ -14,7 +26,7 @@
 // ServerEndpoint gets new input -> Bytes -> CRUDP_Protocol -> pushq(PacketEvent)
 // ACE_Reactor knows to wake CRUDLink up, whenever there are new events
 std::set<CRUDLink *> all_links;
-CRUDLink::CRUDLink() :  m_notifier(nullptr, nullptr, ACE_Event_Handler::WRITE_MASK)
+CRUDLink::CRUDLink() :  m_notifier(nullptr, nullptr, ACE_Event_Handler::WRITE_MASK),m_net_layer(nullptr),m_target(nullptr)
 {
     m_notifier.event_handler(this);
     m_protocol.setCodec(new PacketCodecNull);
@@ -32,7 +44,7 @@ CRUDLink::~CRUDLink()
 ///
 void CRUDLink::event_for_packet(PacketEvent * pak_ev)
 {
-    CrudP_Packet *pak=pak_ev->m_pkt;
+    CrudP_Packet *pak=pak_ev->m_pkt.get();
     // switch this to while, maybe many events are coming from single packet ?
     CRUDLink_Event *res = factory().EventFromStream(*pak->GetStream());
     if(!res)
@@ -49,6 +61,7 @@ void CRUDLink::event_for_packet(PacketEvent * pak_ev)
         qDebug() << res->info() << "left" << pak->GetStream()->GetReadableBits() <<"bits";
     }
 }
+
 ///
 /// \brief CRUDLink::packets_for_event - convert event to 1-n packets and push them to our net_layer()
 /// \param ev - an event that we've received from our downstream.
@@ -70,10 +83,11 @@ void CRUDLink::packets_for_event(SEGSEvent *ev)
         return;
     }
     // wrap all packets as PacketEvents and put them on link queue
-    for (CrudP_Packet *pkt : packets_to_send)
+    for (std::unique_ptr<CrudP_Packet> &pkt : packets_to_send)
     {
-        net_layer()->putq(new PacketEvent(this, pkt, peer_addr()));
+        net_layer()->putq(new PacketEvent(this, std::move(pkt), peer_addr()));
     }
+    packets_to_send.clear();
     connection_sent_packet(); // data was sent, update
 }
 
@@ -88,6 +102,7 @@ void CRUDLink::connection_sent_packet()
 {
     m_last_send_activity = ACE_OS::gettimeofday();
 }
+
 //! Called when we start to service a new connection, here we tell reactor to wake us
 //! when queue() is not empty.
 int CRUDLink::open (void *p)
@@ -100,6 +115,7 @@ int CRUDLink::open (void *p)
     connection_sent_packet();
     return 0;
 }
+
 int CRUDLink::handle_output( ACE_HANDLE )
 {
     SEGSEvent *ev;
@@ -116,7 +132,7 @@ int CRUDLink::handle_output( ACE_HANDLE )
                 connection_update();
                 break;
             case SEGS_EventTypes::evDisconnect:
-                putq(new SEGSEvent(SEGS_EventTypes::evFinish)); // close the link
+                putq(SEGSEvent::s_ev_finish.shallow_copy()); // close the link
                 break;
             case CRUD_EventTypes::evPacket: // CRUDP_Protocol has posted a pre-parsed packet to us
                 event_for_packet(static_cast<PacketEvent *>(ev));
@@ -148,12 +164,13 @@ void CRUDLink::received_block( BitStream &bytes )
     // Fill the protocol with 'raw' bit stream
     m_protocol.ReceivedBlock(bytes);
     // now try to get actual packets
-    CrudP_Packet *pkt = m_protocol.RecvPacket(false);
+    CrudP_Packet *pkt = m_protocol.RecvPacket();
     while(pkt)
     {
-        putq(new PacketEvent(net_layer(),pkt,peer_addr()));
+        std::unique_ptr<CrudP_Packet> own_it(pkt);
+        putq(new PacketEvent(net_layer(),std::move(own_it),peer_addr()));
         ++recv_count;
-        pkt=m_protocol.RecvPacket(false);
+        pkt=m_protocol.RecvPacket();
     }
     if(recv_count>0)
         connection_update(); //update the last time we've seen packets on this link
@@ -165,3 +182,4 @@ int CRUDLink::handle_close(ACE_HANDLE h, ACE_Reactor_Mask c)
     return EventProcessor::handle_close(h,c);
 }
 
+//! @}

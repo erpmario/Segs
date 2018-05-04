@@ -1,10 +1,8 @@
 /*
- * Super Entity Game Server Project
- * http://segs.sf.net/
- * Copyright (c) 2006 - 2016 Super Entity Game Server Team (see Authors.txt)
+ * SEGS - Super Entity Game Server
+ * http://www.segs.io/
+ * Copyright (c) 2006 - 2018 SEGS Team (see Authors.txt)
  * This software is licensed! (See License.txt for details)
- *
-
  */
 
 #pragma once
@@ -39,6 +37,7 @@ public:
     {
     }
 };
+
 class ShortcutsRequest final : public MapLinkEvent
 {
 public:
@@ -80,6 +79,7 @@ public:
     {
     }
 };
+
 class ClientQuit final : public MapLinkEvent
 {
 public:
@@ -98,6 +98,7 @@ public:
     }
 
 };
+
 class ForcedLogout final : public MapLinkEvent
 {
 public:
@@ -132,6 +133,7 @@ public:
         console = bs.GetPackedBits(1);
     }
 };
+
 class ConsoleCommand final : public MapLinkEvent
 {
 public:
@@ -147,6 +149,7 @@ public:
         bs.GetString(contents);
     }
 };
+
 class ClientResumedRendering final : public MapLinkEvent
 {
 public:
@@ -158,13 +161,12 @@ public:
     }
     void serializefrom(BitStream &/*bs*/)
     {
-        assert(!"Unimplemented");
+//        Parameterless - serializefrom is no-op
     }
 };
 
 class MiniMapState final : public MapLinkEvent
 {
-
 public:
     uint32_t tile_idx=0;
     MiniMapState():MapLinkEvent(MapEventTypes::evMiniMapState)
@@ -178,48 +180,6 @@ public:
         tile_idx=bs.GetPackedBits(8);
     }
 
-};
-class WindowState final : public MapLinkEvent
-{
-public:
-    uint32_t window_idx;
-    struct WindowS {
-        uint32_t field_0;
-        uint32_t field_4;
-        uint32_t field_8;
-        uint32_t field_C;
-        uint32_t field_14;
-        uint32_t field_18;
-        uint32_t field_24;
-        uint32_t color;
-        uint32_t alpha;
-    };
-    WindowS wnd;
-    WindowState():MapLinkEvent(MapEventTypes::evWindowState)
-    {}
-    void serializeto(BitStream &bs) const
-    {
-        bs.StorePackedBits(1,14); // opcode
-    }
-    void serializefrom(BitStream &bs)
-    {
-        window_idx = bs.GetPackedBits(1);
-
-        wnd.field_0 = bs.GetPackedBits(1);
-        wnd.field_4 = bs.GetPackedBits(1);
-        uint32_t val = bs.GetPackedBits(1);
-        if(val==4)
-            wnd.field_18 = 2;
-        wnd.field_24 = val;
-
-        wnd.field_14 = bs.GetPackedBits(1);
-        wnd.color = bs.GetPackedBits(1);
-        wnd.alpha = bs.GetPackedBits(1);
-        if(bs.GetBits(1)) {
-            wnd.field_8 = bs.GetPackedBits(1);
-            wnd.field_C = bs.GetPackedBits(1);
-        }
-    }
 };
 
 class CombineRequest final : public MapLinkEvent
@@ -259,8 +219,10 @@ public:
         getPowerForCombinde(bs,second_power);
     }
 };
+
 #include "Events/InputState.h"
 #include "Events/ChatMessage.h"
+#include "Events/WindowState.h"
 //////////////////////////////////////////////////////////////////////////
 // Server -> Client events
 class MapInstanceConnected final : public MapLinkEvent
@@ -291,7 +253,6 @@ public:
     QString     m_fatal_error;
 
 };
-
 
 class InspirationDockMode final : public MapLinkEvent
 {
@@ -334,6 +295,7 @@ public:
         bs.GetString(name);
     }
 };
+
 class ChangeStance final : public MapLinkEvent
 {
 public:
@@ -356,6 +318,7 @@ public:
     }
 
 };
+
 class SetDestination final : public MapLinkEvent
 {
 public:
@@ -383,7 +346,6 @@ public:
 class ActivateInspiration final : public MapLinkEvent
 {
 public:
-    int insp_unk;
     int slot_idx;
     int row_idx;
     ActivateInspiration():MapLinkEvent(MapEventTypes::evActivateInspiration)
@@ -396,25 +358,58 @@ public:
     }
     void serializefrom(BitStream &bs) override
     {
-        insp_unk = bs.GetBits(29);
         slot_idx = bs.GetPackedBits(3);
         row_idx = bs.GetPackedBits(3);
+    }
+};
+
+class SetDefaultPowerSend final : public MapLinkEvent
+{
+public:
+    int powerset_idx;
+    int power_idx;
+    SetDefaultPowerSend():MapLinkEvent(MapEventTypes::evSetDefaultPowerSend)
+    {}
+    void serializeto(BitStream &bs) const
+    {
+        bs.StorePackedBits(1,30);
+    }
+    void serializefrom(BitStream &bs)
+    {
+        powerset_idx = bs.GetPackedBits(4);
+        power_idx = bs.GetPackedBits(4);
+    }
+};
+
+class SetDefaultPower final : public MapLinkEvent
+{
+public:
+    SetDefaultPower():MapLinkEvent(MapEventTypes::evSetDefaultPower)
+    {}
+    void serializeto(BitStream &bs) const
+    {
+        bs.StorePackedBits(1,31);
+    }
+    void serializefrom(BitStream &/*bs*/)
+    {
+        // TODO: Seems like nothing is received server side.
+        qWarning() << "SetDefaultPower unimplemented.";
     }
 };
 
 class UnqueueAll final : public MapLinkEvent
 {
 public:
-    int32_t g_input_pak; // TODO: Not sure what this is?
     UnqueueAll():MapLinkEvent(MapEventTypes::evUnqueueAll)
     {}
     void serializeto(BitStream &bs) const
     {
         bs.StorePackedBits(1,32);
     }
-    void serializefrom(BitStream &bs)
+    void serializefrom(BitStream &/*bs*/)
     {
-        g_input_pak = bs.GetBits(32);
+        // TODO: Seems like nothing is received server side.
+        qWarning() << "UnqueueAll unimplemented.";
     }
 };
 
@@ -429,9 +424,10 @@ public:
     }
     void serializefrom(BitStream &/*bs*/)
     {
-        assert(!"Unimplemented");
+//        Parameterless - serializefrom is no-op
     }
 };
+
 class DescriptionAndBattleCry final : public MapLinkEvent
 {
 public:
@@ -449,21 +445,7 @@ public:
         bs.GetString(battlecry);
     }
 };
-class EntityInfoRequest final : public MapLinkEvent
-{
-public:
-    int entity_idx;
-    EntityInfoRequest():MapLinkEvent(MapEventTypes::evEntityInfoRequest)
-    {}
-    void serializeto(BitStream &bs) const override
-    {
-        bs.StorePackedBits(12,entity_idx);
-    }
-    void serializefrom(BitStream &bs) override
-    {
-        entity_idx = bs.GetPackedBits(12);
-    }
-};
+
 class SwitchViewPoint final : public MapLinkEvent
 {
 public:
@@ -479,6 +461,7 @@ public:
         new_viewpoint_is_firstperson = bs.GetBits(1);
     }
 };
+
 class TargetChatChannelSelected final : public MapLinkEvent
 {
 public:
@@ -494,6 +477,7 @@ public:
         m_chat_type = bs.GetPackedBits(1);
     }
 };
+
 class ChatReconfigure final : public MapLinkEvent
 {
 public:
@@ -511,10 +495,10 @@ public:
         m_chat_bottom_flags = bs.GetPackedBits(1);
     }
 };
+
 class PowersDockMode final : public MapLinkEvent
 {
 public:
-    uint32_t dock_mode = 0;
     bool toggle_secondary_tray = 0;
 
     PowersDockMode():MapLinkEvent(MapEventTypes::evPowersDockMode)
@@ -526,11 +510,10 @@ public:
     }
     void serializefrom(BitStream &bs)
     {
-        dock_mode = bs.GetBits(18);
         toggle_secondary_tray = bs.GetBits(1);
-        // TODO: Not all bits were consumed
     }
 };
+
 class SwitchTray final : public MapLinkEvent
 {
 public:
@@ -555,11 +538,97 @@ public:
     }
 };
 
-#include "Events/ClientSettings.h"
-#include "Events/GameCommandList.h"
+class SetKeybind final : public MapLinkEvent
+{
+public:
+    QString profile;
+    uint32_t key_and_secondary;
+    uint8_t key;
+    uint32_t mods;
+    QString command;
+    bool is_secondary;
+
+    SetKeybind():MapLinkEvent(MapEventTypes::evSetKeybind)
+    {}
+    void serializeto(BitStream &bs) const
+    {
+        bs.StorePackedBits(1,19);
+    }
+    void serializefrom(BitStream &bs)
+    {
+        bs.GetString(profile);  // Profile Name
+        key_and_secondary = bs.GetBits(32); // Key & Secondary Binding
+
+        key = key_and_secondary &0xFF;
+        is_secondary = (key_and_secondary & 0xF00)==0xF00;
+
+        mods = bs.GetBits(32);  // Mods
+        bs.GetString(command);  // Command
+    }
+};
+
+class RemoveKeybind final : public MapLinkEvent
+{
+public:
+    QString profile;
+    uint32_t key;
+    uint32_t mods;
+    RemoveKeybind():MapLinkEvent(MapEventTypes::evRemoveKeybind)
+    {}
+    void serializeto(BitStream &bs) const
+    {
+        bs.StorePackedBits(1,20);
+    }
+    void serializefrom(BitStream &bs)
+    {
+        bs.GetString(profile);  // Profile Name
+        key = bs.GetBits(32);   // Key
+        mods = bs.GetBits(32);  // Mods
+    }
+};
+
+class ResetKeybinds final : public MapLinkEvent
+{
+public:
+    ResetKeybinds():MapLinkEvent(MapEventTypes::evResetKeybinds)
+    {}
+    void serializeto(BitStream &bs) const
+    {
+        bs.StorePackedBits(1,21);
+    }
+    void serializefrom(BitStream &/*bs*/)
+    {
+        // TODO: Seems like nothing is received server side.
+    }
+};
+
+class SelectKeybindProfile final : public MapLinkEvent
+{
+public:
+    QString profile;
+    SelectKeybindProfile():MapLinkEvent(MapEventTypes::evSelectKeybindProfile)
+    {}
+    void serializeto(BitStream &bs) const
+    {
+        bs.StorePackedBits(1,22);
+    }
+    void serializefrom(BitStream &bs)
+    {
+        bs.GetString(profile); // Keybind Profile Name
+    }
+};
+
 #include "Events/ChatDividerMoved.h"
-#include "Events/SceneEvent.h"
 #include "Events/EntitiesResponse.h"
-#include "Events/Shortcuts.h"
-#include "Events/PlaqueVisited.h"
+#include "Events/FriendsListUpdate.h"
+#include "Events/GameCommandList.h"
 #include "Events/LocationVisited.h"
+#include "Events/PlaqueVisited.h"
+#include "Events/PlayerInfo.h"
+#include "Events/SaveClientOptions.h"
+#include "Events/SceneEvent.h"
+#include "Events/Shortcuts.h"
+#include "Events/SidekickOffer.h"
+#include "Events/TeamLooking.h"
+#include "Events/TeamOffer.h"
+#include "Events/InteractWithEntity.h"

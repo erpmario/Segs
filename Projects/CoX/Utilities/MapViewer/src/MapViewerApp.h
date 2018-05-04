@@ -1,3 +1,10 @@
+/*
+ * SEGS - Super Entity Game Server
+ * http://www.segs.io/
+ * Copyright (c) 2006 - 2018 SEGS Team (see Authors.txt)
+ * This software is licensed! (See License.txt for details)
+ */
+
 #ifndef MAPVIEWERAPP_H
 #define MAPVIEWERAPP_H
 #include "Lutefisk3D/Engine/Application.h"
@@ -6,14 +13,18 @@
 #include <QObject>
 
 class SideWindow; // Qt side window
-namespace Urho3D {
-class Node;
-class Scene;
-class StaticModel;
-class Vector3;
-class Drawable;
+
+namespace Urho3D
+{
+    class Node;
+    class Scene;
+    class StaticModel;
+    class Vector3;
+    class Drawable;
 }
+
 struct CoHSceneGraph;
+struct ConvertedRootNode;
 struct CoHNode;
 struct CoHModel;
 
@@ -30,6 +41,7 @@ public:
 public slots:
     void loadSelectedSceneGraph(const QString &path);
     void onDisplayNode(CoHNode *n, bool rootnode);
+    void onDisplayRef(ConvertedRootNode *root, bool show_all);
     void onNodeSelected(CoHNode *n);
 signals:
     void cameraLocationChanged(float x,float y,float z);

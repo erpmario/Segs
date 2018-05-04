@@ -1,8 +1,20 @@
+/*
+ * SEGS - Super Entity Game Server
+ * http://www.segs.io/
+ * Copyright (c) 2006 - 2018 SEGS Team (see Authors.txt)
+ * This software is licensed! (See License.txt for details)
+ */
+
+/*!
+ * @addtogroup PasswordHasher Projects/CoX/Common/PasswordHasher
+ * @{
+ */
+
 #include "PasswordHasher.h"
 
 #include <QTime>
 
-PasswordHasher::PasswordHasher()
+PasswordHasher::PasswordHasher() : m_hasher(QCryptographicHash::Sha256)
 {
 
 }
@@ -39,10 +51,11 @@ QByteArray PasswordHasher::generateSalt()
  * \param salt The salt to be appended to the password.
  * \return A QByteArray containing the salted and hashed password.
  */
-QByteArray PasswordHasher::hashPassword(const char * pass, QByteArray salt)
+QByteArray PasswordHasher::hashPassword(const QByteArray &pass, const QByteArray &salt)
 {
-    QByteArray pass_array(pass);
-    pass_array.append(salt);
-    QByteArray hashed_pass_array = m_hasher->hash(pass_array, QCryptographicHash::Sha256);
+    QByteArray pass_array(pass+salt);
+    QByteArray hashed_pass_array = m_hasher.hash(pass_array, QCryptographicHash::Sha256);
     return hashed_pass_array;
 }
+
+//! @}

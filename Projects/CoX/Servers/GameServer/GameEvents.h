@@ -1,10 +1,8 @@
 /*
- * Super Entity Game Server Project
- * http://segs.sf.net/
- * Copyright (c) 2006 - 2016 Super Entity Game Server Team (see Authors.txt)
+ * SEGS - Super Entity Game Server
+ * http://www.segs.io/
+ * Copyright (c) 2006 - 2018 SEGS Team (see Authors.txt)
  * This software is licensed! (See License.txt for details)
- *
-
  */
 
 #pragma once
@@ -14,13 +12,12 @@
 #include "CRUDP_Protocol/CRUD_Link.h"
 #include "CRUDP_Protocol/CRUD_Events.h"
 #include "Servers/InternalEvents.h"
-#include "Servers/opcodes/ControlCodes.h"
 
 #include <QtCore/QString>
 
 typedef CRUDLink_Event GameLinkEvent;
 
-class CharacterClient;
+struct GameAccountResponseData;
 
 class GameEventTypes : public CRUD_EventTypes
 {
@@ -37,7 +34,9 @@ public:
         EVENT_DECL(evDeleteAcknowledged,8)
 
         EVENT_DECL(evUnknownEvent,16)
-        END_EVENTS(17)
+
+        EVENT_DECL(evServerReconfigured,100)
+        END_EVENTS(102)
 };
 
 class MapServerAddrRequest : public GameLinkEvent
@@ -47,11 +46,11 @@ public:
     {
 
     }
-    void serializeto(BitStream &bs) const
+    void serializeto(BitStream &bs) const override
     {
         bs.StorePackedBits(1,3); //opcode
     }
-    void serializefrom(BitStream &src)
+    void serializefrom(BitStream &src) override
     {
         m_character_index = src.GetPackedBits(1);
         m_map_server_ip = src.GetPackedBits(1);
@@ -60,10 +59,11 @@ public:
 
     }
     uint32_t m_map_server_ip;
-    uint32_t m_character_index;
+    uint16_t m_character_index;
     uint32_t m_mapnumber;
     QString m_char_name;
 };
+
 class MapServerAddrResponse : public GameLinkEvent
 {
 public:
@@ -71,20 +71,18 @@ public:
     {
         unused1=unused2=unused3=unused4=0;
     }
-    void serializefrom(BitStream &src)
+    void serializefrom(BitStream &src) override
     {
-        uint16_t port;
-        uint32_t ipaddr;
         unused1         = src.GetPackedBits(1);
         unused2         = src.GetPackedBits(1);
-        ipaddr          = src.GetPackedBits(1);
+        uint32_t ipaddr = src.GetPackedBits(1);
         unused3         = src.GetPackedBits(1);
-        port            = src.GetPackedBits(1);
+        uint16_t port   = src.GetPackedBits(1);
         unused4         = src.GetPackedBits(1);
         m_map_cookie    = src.GetPackedBits(1);
         m_address.set(port,ntohl(ipaddr));
     }
-    void serializeto(BitStream &tgt) const
+    void serializeto(BitStream &tgt) const override
     {
         uint32_t ipaddr = htonl(m_address.get_ip_address());
         uint16_t port   = m_address.get_port_number();
@@ -106,6 +104,7 @@ public:
     // 1 - Problem detected in the game database system
     uint32_t m_map_cookie;
 };
+
 class DeleteCharacter : public GameLinkEvent
 {
 public:
@@ -113,13 +112,13 @@ public:
     {}
     DeleteCharacter(EventProcessor *evsrc,uint8_t idx,const QString &name) : GameLinkEvent(GameEventTypes::evDeleteCharacter,evsrc),m_index(idx),m_char_name(name)
     {}
-    void serializeto(BitStream &bs) const
+    void serializeto(BitStream &bs) const override 
     {
         bs.StorePackedBits(1,4); // opcode
         bs.StorePackedBits(1,m_index);
         bs.StoreString(m_char_name);
     }
-    void serializefrom(BitStream &bs)
+    void serializefrom(BitStream &bs) override 
     {
         m_index=bs.GetPackedBits(1);
         bs.GetString(m_char_name);
@@ -127,31 +126,33 @@ public:
     uint8_t m_index;
     QString m_char_name;
 };
+
 class UpdateCharacter : public GameLinkEvent
 {
 public:
     UpdateCharacter():GameLinkEvent(GameEventTypes::evUpdateCharacter)
     {
     }
-    void serializeto(BitStream &bs) const;
-    void serializefrom(BitStream &bs);
+    void serializeto(BitStream &bs) const override;
+    void serializefrom(BitStream &bs) override;
     uint8_t m_index;
 };
+
 class CharacterResponse : public GameLinkEvent
 {
 public:
     CharacterResponse():GameLinkEvent(GameEventTypes::evCharacterResponse)
     {}
-    CharacterResponse(EventProcessor *src,uint8_t idx,CharacterClient *c) : GameLinkEvent(GameEventTypes::evCharacterResponse,src)
+    CharacterResponse(EventProcessor *src,uint8_t idx,GameAccountResponseData *gad) : GameLinkEvent(GameEventTypes::evCharacterResponse,src)
     {
         m_index=idx;
-        m_client=c;
+        m_data=gad;
     }
-    void set_client(CharacterClient *c) {m_client=c;}
-    void serializeto(BitStream &bs) const;
-    void serializefrom(BitStream &bs);
+    void set_client(GameAccountResponseData *gad) {m_data=gad;}
+    void serializeto(BitStream &bs) const override;
+    void serializefrom(BitStream &bs) override;
     uint8_t m_index;
-    CharacterClient *m_client;
+    GameAccountResponseData *m_data;
 };
 
 class UpdateServer : public GameLinkEvent
@@ -159,9 +160,9 @@ class UpdateServer : public GameLinkEvent
 public:
     UpdateServer():GameLinkEvent(GameEventTypes::evUpdateServer)
     {}
-    void serializeto( BitStream &tgt ) const;
-    void serializefrom( BitStream &src );
-    void dependent_dump();
+    void serializeto( BitStream &tgt ) const override;
+    void serializefrom( BitStream &src ) override;
+    void dependent_dump() const;
 
 
     uint32_t m_build_date;
@@ -171,19 +172,19 @@ public:
     QString accountName;
     bool localMapServer;
 };
+
 class CharacterSlots : public GameLinkEvent
 {
 public:
-    CharacterSlots():GameLinkEvent(GameEventTypes::evCharacterSlots)
+    CharacterSlots():GameLinkEvent(GameEventTypes::evCharacterSlots),m_data(nullptr)
     {}
-    void set_client(CharacterClient *c) {m_client=c;}
-    void serializeto( BitStream &tgt ) const;
-    void serializefrom( BitStream &src );
-    void dependent_dump();
+    void set_account_data(GameAccountResponseData *c) {m_data=c;}
+    void serializeto( BitStream &tgt ) const override;
+    void serializefrom( BitStream &src ) override;
 
     uint32_t m_unknown_new;
     uint8_t m_clientinfo[16];
-    CharacterClient *m_client;
+    GameAccountResponseData *m_data;
 };
 
 class GameEntryError : public GameLinkEvent
@@ -193,26 +194,31 @@ public:
     {}
     GameEntryError(EventProcessor *evsrc,const QString &erstr):GameLinkEvent(GameEventTypes::evGameEntryError,evsrc),m_error(erstr)
     {}
-    void serializeto( BitStream &tgt ) const;
-    void serializefrom( BitStream &src );
-    void dependent_dump();
+    void serializeto( BitStream &tgt ) const override;
+    void serializefrom( BitStream &src ) override;
     QString m_error;
 };
+
 class DeletionAcknowledged : public GameLinkEvent
 {
 public:
     DeletionAcknowledged():GameLinkEvent(GameEventTypes::evDeleteAcknowledged)
     {}
-    void serializeto( BitStream &tgt ) const;
-    void serializefrom( BitStream &) {}
+    void serializeto( BitStream &tgt ) const override;
+    void serializefrom( BitStream &) override {}
 };
+
 class GameUnknownRequest : public GameLinkEvent
 {
 public:
     GameUnknownRequest():GameLinkEvent(GameEventTypes::evUnknownEvent)
     { }
-    void serializeto(BitStream &) const
-    { }
-    void serializefrom(BitStream &)
-    { }
+    void serializeto(BitStream &) const override { }
+    void serializefrom(BitStream &) override { }
+};
+
+class GameServerReconfigured : public InternalEvent
+{
+public:
+    GameServerReconfigured():InternalEvent(GameEventTypes::evServerReconfigured) {}
 };

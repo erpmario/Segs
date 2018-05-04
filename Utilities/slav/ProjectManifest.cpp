@@ -1,3 +1,15 @@
+/*
+ * SEGS - Super Entity Game Server
+ * http://www.segs.io/
+ * Copyright (c) 2006 - 2018 SEGS Team (see Authors.txt)
+ * This software is licensed! (See License.txt for details)
+ */
+
+/*!
+ * @addtogroup slav Utilities/slav
+ * @{
+ */
+
 #include "ProjectManifest.h"
 #include "CerealHelpers.h"
 
@@ -13,8 +25,8 @@
 #include <QDirIterator>
 #include <cassert>
 
-CEREAL_CLASS_VERSION( FileDescription, 1 );
-CEREAL_CLASS_VERSION( AppVersionManifest, 1 );
+CEREAL_CLASS_VERSION( FileDescription, 1 )
+CEREAL_CLASS_VERSION( AppVersionManifest, 1 )
 
 /**
     Basic idea is to have 'base' project files and allow per-server 'mods' that add/override the base files.
@@ -153,3 +165,5 @@ AppVersionManifest calculateDelta(const AppVersionManifest & old_version, const 
     }
     return dest;
 }
+
+//! @}

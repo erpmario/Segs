@@ -1,18 +1,19 @@
 /*
- * Super Entity Game Server
- * http://segs.sf.net/
- * Copyright (c) 2006 - 2017 Super Entity Game Server Team (see Authors.txt)
+ * SEGS - Super Entity Game Server
+ * http://www.segs.io/
+ * Copyright (c) 2006 - 2018 SEGS Team (see Authors.txt)
  * This software is licensed! (See License.txt for details)
- *
  */
 
 #pragma once
 #include "Buffer.h"
+#include "Logging.h"
 #include "CRUDP_Packet.h"
 #include "CRUDP_Protocol.h"
 #include "EventProcessor.h"
 #include "LinkLevelEvent.h"
 
+#include <memory>
 class CRUD_EventTypes
 {
 public:
@@ -30,11 +31,11 @@ public:
 class PacketEvent : public SEGSEvent
 {
 public:
-    PacketEvent(EventProcessor *evsrc, CrudP_Packet *pkt, const ACE_INET_Addr &tgt)
-        : SEGSEvent(CRUD_EventTypes::evPacket, evsrc), m_pkt(pkt), target(tgt)
+    PacketEvent(EventProcessor *evsrc, std::unique_ptr<CrudP_Packet> &&pkt, const ACE_INET_Addr &tgt)
+        : SEGSEvent(CRUD_EventTypes::evPacket, evsrc), m_pkt(std::move(pkt)), target(tgt)
     {
     }
-    CrudP_Packet * m_pkt;
+    std::unique_ptr<CrudP_Packet> m_pkt;
     ACE_INET_Addr  target;
     const uint8_t *bytes() const { return m_pkt->GetStream()->read_ptr(); }
     size_t         size() const { return m_pkt->GetStream()->GetReadableDataSize(); }
@@ -146,7 +147,7 @@ public:
             return new DisconnectRequest(); // CTRL_DISCONNECT_REQ
         default: break;
         }
-        ACE_DEBUG((LM_WARNING, ACE_TEXT("Unhandled control event type %d\n"), control_opcode));
+        qWarning("Unhandled control event type %d", control_opcode);
         return nullptr;
     }
 };

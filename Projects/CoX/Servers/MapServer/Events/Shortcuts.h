@@ -1,19 +1,19 @@
 /*
- * Super Entity Game Server Project
- * http://segs.sf.net/
- * Copyright (c) 2006 - 2016 Super Entity Game Server Team (see Authors.txt)
+ * SEGS - Super Entity Game Server
+ * http://www.segs.io/
+ * Copyright (c) 2006 - 2018 SEGS Team (see Authors.txt)
  * This software is licensed! (See License.txt for details)
- *
  */
 
 #pragma once
 // if this file is included stand-alone this will pull in common definitions
 #include "MapEvents.h"
 #include "NetCommandManager.h"
+
 class Shortcuts : public MapLinkEvent
 {
 public:
-    Shortcuts():MapLinkEvent(MapEventTypes::evShortcuts),m_num_shortcuts2(0)
+    Shortcuts(MapClientSession *sess):MapLinkEvent(MapEventTypes::evShortcuts),m_num_shortcuts2(0),m_client(sess)
     {
     }
     void serializeto(BitStream &bs) const
@@ -29,5 +29,5 @@ public:
     //vector<NetCommand *> m_commands;
     std::vector<NetCommand *> m_commands2;  // m_commands2 will get filled after we know more about them
     std::vector<std::string>  m_shortcuts2;
-    MapClient *m_client;
+    MapClientSession *m_client;
 };

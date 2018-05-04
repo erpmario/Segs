@@ -1,20 +1,35 @@
+/*
+ * SEGS - Super Entity Game Server
+ * http://www.segs.io/
+ * Copyright (c) 2006 - 2018 SEGS Team (see Authors.txt)
+ * This software is licensed! (See License.txt for details)
+ */
+
+/*!
+ * @addtogroup GameData Projects/CoX/Common/GameData
+ * @{
+ */
+
 #include "attrib_serializers.h"
 #include "attrib_definitions.h"
 #include "serialization_common.h"
 #include "DataStorage.h"
-namespace {
-bool loadFrom(BinStore * s, Parse_AttribDesc & target)
+
+namespace
 {
-    s->prepare();
-    bool ok = true;
-    ok &= s->read(target.Name);
-    ok &= s->read(target.DisplayName);
-    ok &= s->read(target.IconName);
-    ok &= s->prepare_nested(); // will update the file size left
-    assert(s->end_encountered());
-    return ok;
+    bool loadFrom(BinStore * s, Parse_AttribDesc & target)
+    {
+        s->prepare();
+        bool ok = true;
+        ok &= s->read(target.Name);
+        ok &= s->read(target.DisplayName);
+        ok &= s->read(target.IconName);
+        ok &= s->prepare_nested(); // will update the file size left
+        assert(s->end_encountered());
+        return ok;
+    }
 }
-}
+
 bool loadFrom(BinStore * s, AttribNames_Data & target)
 {
     s->prepare();
@@ -61,23 +76,22 @@ static void serialize(Archive & archive, AttribNames_Data & m)
     archive(cereal::make_nvp("Boost",m.m_Boost));
     archive(cereal::make_nvp("Group",m.m_Group));
 }
+
 template<class Archive>
 void serialize(Archive & archive, Parse_CharAttrib & target)
 {
     char buf[128];
-    float *damage_types = &target.m_DamageType00;
     for(int i=0; i<24; ++i)
     {
         sprintf(buf,"DamageType%02d",i);
-        archive(cereal::make_nvp(buf,damage_types[i]));
+        archive(cereal::make_nvp(buf,target.m_DamageTypes[i]));
     }
     archive(cereal::make_nvp("HitPoints",target.m_HitPoints));
     archive(cereal::make_nvp("Endurance",target.m_Endurance));
     archive(cereal::make_nvp("ToHit",target.m_ToHit));
-    float *defense_types = &target.m_DefenseType00;
     for(int i=0; i<24; ++i) {
         sprintf(buf,"DefenseType00%02d",i);
-        archive(cereal::make_nvp(buf,defense_types[i]));
+        archive(cereal::make_nvp(buf,target.m_DefenseTypes[i]));
     }
 
     archive(cereal::make_nvp("Defense",target.m_Defense));
@@ -120,23 +134,22 @@ void serialize(Archive & archive, Parse_CharAttrib & target)
     archive(cereal::make_nvp("InterruptTime",target.m_InterruptTime));
     archive(cereal::make_nvp("EnduranceDiscount",target.m_EnduranceDiscount));
 }
+
 template<class Archive>
 void serialize(Archive & archive, Parse_CharAttribMax & target)
 {
     char buf[128];
-    auto *damage_types = &target.m_DamageType00;
     for(int i=0; i<24; ++i)
     {
         sprintf(buf,"DamageType%02d",i);
-        archive(cereal::make_nvp(buf,damage_types[i]));
+        archive(cereal::make_nvp(buf,target.m_DamageTypes[i]));
     }
     archive(cereal::make_nvp("HitPoints",target.m_HitPoints));
     archive(cereal::make_nvp("Endurance",target.m_Endurance));
     archive(cereal::make_nvp("ToHit",target.m_ToHit));
-    auto *defense_types = &target.m_DefenseType00;
     for(int i=0; i<24; ++i) {
         sprintf(buf,"DefenseType00%02d",i);
-        archive(cereal::make_nvp(buf,defense_types[i]));
+        archive(cereal::make_nvp(buf,target.m_DefenseTypes[i]));
     }
 
     archive(cereal::make_nvp("Defense",target.m_Defense));
@@ -190,16 +203,14 @@ bool loadFrom(BinStore *s, Parse_CharAttrib &target)
     s->prepare();
 
     bool ok = true;
-    float *damage_types = &target.m_DamageType00;
     for(int i=0; i<24; ++i) {
-        ok &= s->read(damage_types[i]);
+        ok &= s->read(target.m_DamageTypes[i]);
     }
     ok &= s->read(target.m_HitPoints);
     ok &= s->read(target.m_Endurance);
     ok &= s->read(target.m_ToHit);
-    float *defense_types = &target.m_DefenseType00;
     for(int i=0; i<24; ++i) {
-        ok &= s->read(defense_types[i]);
+        ok &= s->read(target.m_DefenseTypes[i]);
     }
 
     s->read(target.m_Defense);
@@ -245,21 +256,20 @@ bool loadFrom(BinStore *s, Parse_CharAttrib &target)
     assert(ok && s->end_encountered());
     return ok;
 }
+
 bool loadFrom(BinStore *s, Parse_CharAttribMax &target)
 {
     s->prepare();
 
     bool ok = true;
-    std::vector<float> *damage_types = &target.m_DamageType00;
     for(int i=0; i<24; ++i) {
-        ok &= s->read(damage_types[i]);
+        ok &= s->read(target.m_DamageTypes[i]);
     }
     ok &= s->read(target.m_HitPoints);
     ok &= s->read(target.m_Endurance);
     ok &= s->read(target.m_ToHit);
-    std::vector<float> *defence_types = &target.m_DefenseType00;
     for(int i=0; i<24; ++i) {
-        ok &= s->read(defence_types[i]);
+        ok &= s->read(target.m_DefenseTypes[i]);
     }
 
     s->read(target.m_Defense);
@@ -324,3 +334,27 @@ template
 void serialize<cereal::BinaryInputArchive>(cereal::BinaryInputArchive & archive, Parse_CharAttribMax & m);
 template
 void serialize<cereal::BinaryOutputArchive>(cereal::BinaryOutputArchive & archive, Parse_CharAttribMax & m);
+
+void serializeToDb(const Parse_CharAttrib &data, QString &tgt)
+{
+    std::ostringstream ostr;
+    {
+        cereal::JSONOutputArchive ar(ostr);
+        ar(data);
+    }
+    tgt = QString::fromStdString(ostr.str());
+}
+
+void serializeFromDb(Parse_CharAttrib &data,const QString &src)
+{
+    if(src.isEmpty())
+        return;
+    std::istringstream istr;
+    istr.str(src.toStdString());
+    {
+        cereal::JSONInputArchive ar(istr);
+        ar(data);
+    }
+}
+
+//! @}

@@ -1,10 +1,23 @@
-#define _USE_MATH_DEFINES
-//#define DEBUG_CHAT
+/*
+ * SEGS - Super Entity Game Server
+ * http://www.segs.io/
+ * Copyright (c) 2006 - 2018 SEGS Team (see Authors.txt)
+ * This software is licensed! (See License.txt for details)
+ */
+
+/*!
+ * @addtogroup MapServerEvents Projects/CoX/Servers/MapServer/Events
+ * @{
+ */
+
 #include "ChatMessage.h"
+
 #include "Events/InputState.h"
-#include "Entity.h"
-#include "MapClient.h"
+#include "NetStructures/Entity.h"
+#include "MapEvents.h"
+#include "MapClientSession.h"
 #include "Servers/MapServer/DataHelpers.h"
+#include "Logging.h"
 
 #include <cmath>
 
@@ -23,19 +36,19 @@ void ChatMessage::serializefrom(BitStream &src)
     src.GetString(m_msg);
 }
 
-void sendChatMessage(MessageChannel t, QString msg, MapClient *src, MapClient *tgt)
+void sendChatMessage(MessageChannel t, QString msg, MapClientSession *src, MapClientSession *tgt)
 {
     ChatMessage * res = new ChatMessage(t,msg);
-    res->m_source_player_id = getIdx(*src->char_entity());
-    res->m_target_player_id = getIdx(*src->char_entity());
+    res->m_source_player_id = getIdx(*src->m_ent);
+    res->m_target_player_id = getIdx(*src->m_ent);
 
     tgt->addCommandToSendNextUpdate(std::unique_ptr<ChatMessage>(res));
 
-#ifdef DEBUG_CHAT
-    qDebug().noquote() << "ChatMessage:"
+    qCDebug(logChat).noquote() << "ChatMessage:"
              << "\n  Channel:" << int(res->m_channel_type)
              << "\n  Source:" << res->m_source_player_id
              << "\n  Target:" << res->m_target_player_id
              << "\n  Message:" << res->m_msg;
-#endif
 }
+
+//! @}

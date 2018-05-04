@@ -1,3 +1,15 @@
+/*
+ * SEGS - Super Entity Game Server
+ * http://www.segs.io/
+ * Copyright (c) 2006 - 2018 SEGS Team (see Authors.txt)
+ * This software is licensed! (See License.txt for details)
+ */
+
+/*!
+ * @addtogroup AuthExerciser Projects/CoX/Utilities/AuthExerciser
+ * @{
+ */
+
 #include "DummyClass.h"
 
 #include "AuthProtocol/AuthEvents.h"
@@ -65,8 +77,8 @@ void DummyClass::onServerVersion(AuthorizationProtocolVersion * ev)
     LoginRequest * login_ptr = new LoginRequest();
     const char * my_login = "my_login";
     const char * my_pass = "my_pass";
-    strncpy(login_ptr->login, my_login, 14);
-    strncpy(login_ptr->password, my_pass, 16);
+    strncpy(login_ptr->m_data.login, my_login, 14);
+    strncpy(login_ptr->m_data.password, my_pass, 16);
     lnk->putq(login_ptr);
     qInfo() << "LoginRequest sent:" << login_ptr->type();
 }
@@ -82,7 +94,7 @@ void DummyClass::onLoginResponse(LoginResponse * ev)
 
 void DummyClass::onAuthorizationError(AuthorizationError * ev)
 {
-    qFatal("AuthorizationError received: %s", ev->type());
+    qFatal("AuthorizationError received: %s", ev->info());
 }
 
 void DummyClass::onServerListResponse(ServerListResponse * ev)
@@ -100,8 +112,4 @@ void DummyClass::onServerSelectResponse(ServerSelectResponse *ev)
     qInfo() << "ServerSelectResponse received:" << ev->type();
 }
 
-SEGSEvent* DummyClass::dispatchSync(SEGSEvent * ev)
-{
-    qInfo() << "DummyClass:dispatchSync called.";
-    return ev;
-}
+//! @}

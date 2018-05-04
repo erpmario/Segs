@@ -1,10 +1,25 @@
+/*
+ * SEGS - Super Entity Game Server
+ * http://www.segs.io/
+ * Copyright (c) 2006 - 2018 SEGS Team (see Authors.txt)
+ * This software is licensed! (See License.txt for details)
+ */
+
+/*!
+ * @addtogroup MapServer Projects/CoX/Servers/MapServer
+ * @{
+ */
+
 #include "MapServerData.h"
 
 #include "Common/GameData/DataStorage.h"
 #include "Common/GameData/costume_serializers.h"
 #include "Common/GameData/def_serializers.h"
 #include "Common/GameData/charclass_serializers.h"
+#include "Common/GameData/keybind_serializers.h"
+#include "Common/GameData/npc_serializers.h"
 #include "NetStructures/CommonNetStructures.h"
+#include "Logging.h"
 
 #include <QtCore/QDebug>
 
@@ -97,7 +112,7 @@ public:
     }
     // ColorAndPartPacker interface
 public:
-    void packColor(uint32_t col, BitStream &bs)
+    void packColor(uint32_t col, BitStream &bs) const override
     {
         uint32_t cache_idx=0;
         uint32_t prev_val=0;
@@ -116,7 +131,8 @@ public:
         }
 
     }
-    void unpackColor(BitStream &bs, uint32_t &tgt)
+
+    void unpackColor(BitStream &bs, uint32_t &tgt)const override
     {
         bool in_hash= bs.GetBits(1);
         if(in_hash)
@@ -128,7 +144,8 @@ public:
         }
         tgt = bs.GetBits(32);
     }
-    void packPartname(const QString &str, BitStream &bs)
+
+    void packPartname(const QString &str, BitStream &bs) const override
     {
         uint32_t cache_idx=0;
         uint32_t prev_val=0;
@@ -142,7 +159,8 @@ public:
         else
             bs.StoreString(str);
     }
-    void unpackPartname(BitStream &bs, QString &tgt)
+
+    void unpackPartname(BitStream &bs, QString &tgt)const override
     {
         tgt.clear();
         bool in_cache= bs.GetBits(1);
@@ -157,6 +175,7 @@ public:
         bs.GetString(tgt);
     }
 };
+
 template<class TARGET,unsigned int CRC>
 bool read_data_to(const QString &directory_path,const QString &storage,TARGET &target)
 {
@@ -197,7 +216,8 @@ MapServerData::~MapServerData()
 
 bool MapServerData::read_runtime_data(const QString &directory_path)
 {
-    qWarning().noquote() << "Reading map data from"<<directory_path<<"folder";
+    qInfo().noquote() << "Reading game data from" << directory_path << "folder";
+
     if (!read_costumes(directory_path))
         return false;
     if (!read_colors(directory_path))
@@ -208,25 +228,32 @@ bool MapServerData::read_runtime_data(const QString &directory_path)
         return false;
     if(!read_exp_and_debt(directory_path))
         return false;
-    qWarning().noquote() << " All map data read";
+    if(!read_keybinds(directory_path))
+        return false;
+    if(!read_commands(directory_path))
+        return false;
+    if(!read_npcs(directory_path))
+        return false;
+    qInfo().noquote() << "Finished reading game data.";
     {
-        QDebug warnLine = qWarning().noquote();
-        warnLine << " Postprocessing runtime data .. ";
-        static_cast<HashBasedPacker *>(packer_instance)->fill_hashes(*this);
-        warnLine << "Hashes filled";
+        TIMED_LOG({
+                      static_cast<HashBasedPacker *>(packer_instance)->fill_hashes(*this);
+                      m_npc_store.prepare_dictionaries();
+                  },"Postprocessing runtime data .. ");
+
     }
     return true;
 }
 
 int MapServerData::expForLevel(int lev) const
 {
-    assert(lev>0 && lev<m_experience_and_debt_per_level.m_ExperienceRequired.size());
+    assert(lev>0 && lev<(int)m_experience_and_debt_per_level.m_ExperienceRequired.size());
     return m_experience_and_debt_per_level.m_ExperienceRequired.at(lev - 1);
 }
 
 int MapServerData::expDebtForLevel(int lev) const
 {
-    assert(lev>0 && lev<m_experience_and_debt_per_level.m_DefeatPenalty.size());
+    assert(lev>0 && lev<(int)m_experience_and_debt_per_level.m_DefeatPenalty.size());
     return m_experience_and_debt_per_level.m_DefeatPenalty.at(lev - 1);
 }
 
@@ -253,6 +280,7 @@ bool MapServerData::read_costumes(const QString &directory_path)
     }
     return res;
 }
+
 bool MapServerData::read_colors( const QString &directory_path )
 {
     QDebug deb=qDebug().noquote().nospace();
@@ -276,6 +304,7 @@ bool MapServerData::read_colors( const QString &directory_path )
     }
     return res;
 }
+
 bool MapServerData::read_origins(const QString &directory_path)
 {
     qDebug() << "Loading origins:";
@@ -285,12 +314,14 @@ bool MapServerData::read_origins(const QString &directory_path)
         return false;
     return true;
 }
+
 bool MapServerData::read_classes(const QString &directory_path)
 {
     qDebug() << "Loading classes:";
-    if(!read_data_to<Parse_AllCharClasses,charclass_i0_requiredCrc>(directory_path,"classes.bin",m_player_classes))
+    if (!read_data_to<Parse_AllCharClasses, charclass_i0_requiredCrc>(directory_path, "classes.bin", m_player_classes))
         return false;
-    if(!read_data_to<Parse_AllCharClasses,charclass_i0_requiredCrc>(directory_path,"villain_classes.bin",m_other_classes))
+    if (!read_data_to<Parse_AllCharClasses, charclass_i0_requiredCrc>(directory_path, "villain_classes.bin",
+                                                                      m_other_classes))
         return false;
     return true;
 }
@@ -303,3 +334,31 @@ bool MapServerData::read_exp_and_debt(const QString &directory_path)
         return false;
     return true;
 }
+
+bool MapServerData::read_keybinds(const QString &directory_path)
+{
+    qDebug() << "Loading keybinds:";
+    if(!read_data_to<Parse_AllKeyProfiles,keyprofile_i0_requiredCrc>(directory_path,"kb.bin",m_keybind_profiles))
+        return false;
+    return true;
+}
+
+bool MapServerData::read_commands(const QString &directory_path)
+{
+    qDebug() << "Loading commands:";
+    if (!read_data_to<Parse_AllCommandCategories, keycommands_i0_requiredCrc>(directory_path, "command.bin",
+                                                                              m_command_categories))
+        return false;
+    return true;
+}
+
+bool MapServerData::read_npcs(const QString &directory_path)
+{
+    qDebug() << "Loading npcs:";
+    if (!read_data_to<AllNpcs_Data, npccostumesets_i0_requiredCrc>(directory_path, "VillainCostume.bin",
+                                                                   m_npc_store.m_all_npcs))
+        return false;
+    return true;
+}
+
+//! @}

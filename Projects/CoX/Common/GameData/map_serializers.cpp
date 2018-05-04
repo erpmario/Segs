@@ -1,22 +1,20 @@
+/*
+ * SEGS - Super Entity Game Server
+ * http://www.segs.io/
+ * Copyright (c) 2006 - 2018 SEGS Team (see Authors.txt)
+ * This software is licensed! (See License.txt for details)
+ */
+
+/*!
+ * @addtogroup GameData Projects/CoX/Common/GameData
+ * @{
+ */
+
 #include "map_serializers.h"
 #include "serialization_common.h"
 
 #include "map_definitions.h"
 #include "DataStorage.h"
-
-//static Serialization_Template Map_Tokens[6] = {
-//{ "Name", TOKEN_STRING, 0x10},
-//{ "Icon",  TOKEN_STRING, 0x14},
-//{ "Location",  TOKEN_VEC2, 0},
-//{ "TextLocation",  TOKEN_VEC2, 8},
-//{ "End",  TOKEN_END},
-//{ },
-//};
-
-//static const Serialization_Template Map_Token[2] = {
-//{ "Zone", TOKEN_SUB_TABLE, 0, 0x18, Map_Tokens},
-//{},
-//};
 
 bool loadFrom(BinStore *s,Map_Data &target)
 {
@@ -30,6 +28,7 @@ bool loadFrom(BinStore *s,Map_Data &target)
     assert(ok);
     return ok && s->end_encountered();
 }
+
 bool loadFrom(BinStore *s, AllMaps_Data &target)
 {
     bool ok = true;
@@ -52,6 +51,7 @@ bool loadFrom(BinStore *s, AllMaps_Data &target)
     }
     return ok;
 }
+
 template<class Archive>
 static void serialize(Archive & archive, Map_Data & m)
 {
@@ -65,3 +65,5 @@ void saveTo(const AllMaps_Data &target, const QString &baseName, bool text_forma
 {
     commonSaveTo(target,"AllZones",baseName,text_format);
 }
+
+//! @}

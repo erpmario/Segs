@@ -1,24 +1,25 @@
 /*
- * Super Entity Game Server Project
- * http://segs.sf.net/
- * Copyright (c) 2006 - 2017 Super Entity Game Server Team (see Authors.txt)
+ * SEGS - Super Entity Game Server
+ * http://www.segs.io/
+ * Copyright (c) 2006 - 2018 SEGS Team (see Authors.txt)
  * This software is licensed! (See License.txt for details)
- *
  */
+
 #pragma once
 
 #include "MapEventTypes.h"
 #include "MapLink.h"
 
-#include <QtCore/QString>
+class QString;
 //TODO: those must support chaining
 class GameCommand
 {
-    const size_t    m_type;
+    const uint32_t    m_type;
 public:
-                GameCommand(size_t type) : m_type(type) {}
-        size_t  type() const {return m_type;}
-virtual void    serializeto(BitStream &bs) const = 0;
+                    GameCommand(uint32_t type) : m_type(type) {}
+virtual             ~GameCommand() = default;
+        uint32_t    type() const {return m_type;}
+virtual void        serializeto(BitStream &bs) const = 0;
 };
 
 class PreUpdateCommand : public MapLinkEvent

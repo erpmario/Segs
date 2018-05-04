@@ -1,11 +1,10 @@
 /*
- * Super Entity Game Server Project
- * http://segs.sf.net/
- * Copyright (c) 2006 - 2016 Super Entity Game Server Team (see Authors.txt)
+ * SEGS - Super Entity Game Server
+ * http://www.segs.io/
+ * Copyright (c) 2006 - 2018 SEGS Team (see Authors.txt)
  * This software is licensed! (See License.txt for details)
- *
- 
  */
+
 #pragma once
 #include "BitStream.h"
 
@@ -16,7 +15,8 @@
 #include <map>
 #include <vector>
 
-class MapClient;
+struct MapClientSession;
+
 class NetCommand
 {
     float normalizedCircumferenceToFloat(int number,int numbits)
@@ -44,6 +44,7 @@ public:
     std::vector<Argument> m_arguments;
 
 };
+
 class NetCommandManager
 {
     typedef std::vector<NetCommand *> vNetCommand;
@@ -53,7 +54,7 @@ class NetCommandManager
                                 const vNetCommand &commands,
                                 const vNetCommand &commands2);
 public:
-    void            SendCommandShortcuts(MapClient *client,
+    void            SendCommandShortcuts(MapClientSession *client,
                                          BitStream &tgt,
                                          const std::vector<NetCommand *> &commands2);
     NetCommand *    getCommandByName(const QString &name);

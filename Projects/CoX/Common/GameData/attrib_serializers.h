@@ -1,3 +1,10 @@
+/*
+ * SEGS - Super Entity Game Server
+ * http://www.segs.io/
+ * Copyright (c) 2006 - 2018 SEGS Team (see Authors.txt)
+ * This software is licensed! (See License.txt for details)
+ */
+
 #pragma once
 
 #include <stdint.h>
@@ -20,3 +27,6 @@ template<class Archive>
 void serialize(Archive & archive, Parse_CharAttrib & m);
 template<class Archive>
 void serialize(Archive & archive, Parse_CharAttribMax & m);
+
+void serializeToDb(const Parse_CharAttrib &data, QString &tgt);
+void serializeFromDb(Parse_CharAttrib &data, const QString &src);

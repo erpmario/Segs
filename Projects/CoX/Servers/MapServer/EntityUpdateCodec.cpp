@@ -1,25 +1,32 @@
-//#define DEBUG_INPUT
-//#define DEBUG_ORIENTATION
-#include "EntityUpdateCodec.h"
+/*
+ * SEGS - Super Entity Game Server
+ * http://www.segs.io/
+ * Copyright (c) 2006 - 2018 SEGS Team (see Authors.txt)
+ * This software is licensed! (See License.txt for details)
+ */
 
+/*!
+ * @addtogroup MapServer Projects/CoX/Servers/MapServer
+ * @{
+ */
+
+#include "EntityUpdateCodec.h"
+#include "MapClientSession.h"
+
+#include "NetStructures/Character.h"
+#include "NetStructures/Entity.h"
 #include "MapServer.h"
 #include "MapServerData.h"
-#include "MapClient.h"
-#include "Entity.h"
 #include "GameData/CoHMath.h"
+#include "DataHelpers.h"
+#include "Logging.h"
 
-#ifdef DEBUG_ORIENTATION
-#include <glm/ext.hpp> // currently only needed for DEBUG_ORIENTATION
-#endif
+#include <glm/ext.hpp> // currently only needed for logOrientation debug
 
 namespace  {
-constexpr float F_PI = float(M_PI); // to prevent double <-> float conversion warnings
-
 void storeCreation(const Entity &src, BitStream &bs)
 {
     // entity creation
-    ACE_DEBUG ((LM_DEBUG,ACE_TEXT ("\tSending create entity\n")));
-
     bs.StoreBits(1,src.m_destroyed); // ends creation destroys seq and returns NULL
 
     if(src.m_destroyed)
@@ -27,8 +34,8 @@ void storeCreation(const Entity &src, BitStream &bs)
 
     bs.StorePackedBits(12,src.m_idx);//  this will be put in  of created entity
     PUTDEBUG("after id");
-    bs.StorePackedBits(2,src.m_type);
-    if(src.m_type==Entity::ENT_PLAYER)
+    bs.StorePackedBits(2,uint8_t(src.m_type));
+    if(src.m_type==EntType::PLAYER)
     {
         bs.StoreBits(1,src.m_create_player);
         if(src.m_create_player)
@@ -37,7 +44,7 @@ void storeCreation(const Entity &src, BitStream &bs)
     }
     else
     {
-        bool val=false;
+        bool val=src.m_npc->m_is_owned;
         bs.StoreBits(1,val);
         if(val)
         {
@@ -46,29 +53,32 @@ void storeCreation(const Entity &src, BitStream &bs)
         }
     }
     PUTDEBUG("after creatorowner");
-    if(src.m_type==Entity::ENT_PLAYER || src.m_type==Entity::ENT_CRITTER)
+    if(src.m_type==EntType::PLAYER || src.m_type==EntType::CRITTER)
     {
         bs.StorePackedBits(1,src.m_entity_data.m_class_idx);
         bs.StorePackedBits(1,src.m_entity_data.m_origin_idx);
-        src.m_char.sendTitles(bs,NameFlag::NoName,ConditionalFlag::Conditional); // NoName b/c We send it below
+        bs.StoreBits(1, src.m_char->m_char_data.m_has_titles); // Does entity have titles?
+        if(src.m_char->m_char_data.m_has_titles)
+            src.m_char->sendTitles(bs,NameFlag::NoName,ConditionalFlag::Conditional); // NoName b/c We send it below
     }
     bs.StoreBits(1,src.m_hasname);
     if(src.m_hasname)
-        bs.StoreString(src.m_char.getName());
+        bs.StoreString(src.m_char->getName());
     PUTDEBUG("after names");
     bool fadin = true;
     bs.StoreBits(1,fadin); // Is entity being faded in ?
     // the following is used as an input to LCG float generator, generated float (0-1) is used as
     // linear interpolation factor betwwen scale_min and scale_max
     bs.StoreBits(32,src.m_randSeed);
-    bs.StoreBits(1,src.m_team.m_has_team); // could be supergroup?
-    if(src.m_team.m_has_team)
+    bs.StoreBits(1,src.m_has_supergroup); // TODO: This appears to actually be for Villain Groups
+    if(src.m_has_supergroup)
     {
-        bs.StorePackedBits(2,src.m_team.m_team_rank); // this will be put in field_1830 of created entity
-        bs.StoreString(src.m_team.m_team_name);
+        bs.StorePackedBits(2,src.m_supergroup.m_SG_rank);   // this will be put in field_1830 (iRank) of created entity
+        bs.StoreString(src.m_supergroup.m_SG_name);         // villain group name?
     }
     PUTDEBUG("end storeCreation");
 }
+
 void sendStateMode(const Entity &src,BitStream &bs)
 {
     PUTDEBUG("before sendStateMode");
@@ -80,20 +90,16 @@ void sendStateMode(const Entity &src,BitStream &bs)
     }
     PUTDEBUG("after sendStateMode");
 }
-struct BinTreeEntry {
-    uint8_t x,y,z,d;
-};
-struct BinTreeBase {
-    BinTreeEntry arr[7];
-};
-void storeUnknownBinTree(const Entity &src,BitStream &bs)
+
+void storeUnknownBinTree(const Entity &/*src*/,BitStream &bs)
 {
     bs.StoreBits(1,0);
 }
+
 bool storePosition(const Entity &src,BitStream &bs)
 {
 // float x = pos.vals.x;
-    uint8_t updated_bit_pos = 7;
+    uint8_t updated_bit_pos = 7; // FixMe: updated_bit_pos is explicitly assigned and never modified later.
 
     bs.StoreBits(3,updated_bit_pos);
 
@@ -102,123 +108,116 @@ bool storePosition(const Entity &src,BitStream &bs)
 
     for(int i=0; i<3; i++)
     {
-        FixedPointValue fpv(src.m_entity_data.pos[i]);
+        FixedPointValue fpv(src.m_entity_data.m_pos[i]);
         //diff = packed ^ prev_pos[i]; // changed bits are '1'
         bs.StoreBits(24,fpv.store);
     }
     return true;
 }
-bool update_rot(const Entity &src, int axis ) /* returns true if given axis needs updating */
+
+bool update_rot(const Entity &/*src*/, int axis ) /* returns true if given axis needs updating */
 {
-    if(axis==axis)
+    if(axis==axis) // FixMe: var compared against same var.
         return true;
     return false;
 }
+
 void storeOrientation(const Entity &src,BitStream &bs)
 {
     // Check if update needed through update_rot()
     uint8_t updates;
     updates = ((uint8_t)update_rot(src,0)) | (((uint8_t)update_rot(src,1))<<1) | (((uint8_t)update_rot(src,2))<<2);
     storeBitsConditional(bs,3,updates); //frank 7,0,0.1,0
-#ifdef DEBUG_INPUT
-    fprintf(stderr,"\nupdates: %i\n",updates);
-#endif
-    float pyr_angles[3];
-    glm::vec3 vec = toCoH_YPR(src.m_direction);
-    pyr_angles[0] = 0.0f;
-    pyr_angles[1] = vec.y; // set only yaw value
-    pyr_angles[2] = 0.0f;
-#ifdef DEBUG_ORIENTATION
+
+    qCDebug(logOrientation, "updates: %i",updates);
+    glm::vec3 pyr_angles(0);
+    pyr_angles.y = src.m_entity_data.m_orientation_pyr.y;
     // output everything
-    fprintf(stderr,"\nPlayer: %d\n",src.m_idx);
-    fprintf(stderr,"dir: %s \n", glm::to_string(src.direction).c_str());
-    fprintf(stderr,"camera_pyr: %s \n", glm::to_string(src.inp_state.camera_pyr).c_str());
-    fprintf(stderr,"pyr_angles: farr(%f, %f, %f)\n", pyr_angles[0], pyr_angles[1], pyr_angles[2]);
-    fprintf(stderr,"orient_p: %f \n", src.m_entity_data.m_orientation_pyr[0]);
-    fprintf(stderr,"orient_y: %f \n", src.m_entity_data.m_orientation_pyr[1]);
-    fprintf(stderr,"vel_scale: %f \n", src.inp_state.input_vel_scale);
-#endif
+    qCDebug(logOrientation, "Player: %d", src.m_idx);
+    qCDebug(logOrientation, "dir: %s", glm::to_string(src.m_direction).c_str());
+    qCDebug(logOrientation, "camera_pyr: %s", glm::to_string(src.inp_state.m_camera_pyr).c_str());
+    qCDebug(logOrientation, "pyr_angles: farr(%f, %f, %f)", pyr_angles[0], pyr_angles[1], pyr_angles[2]);
+    qCDebug(logOrientation, "orient_p: %f", src.m_entity_data.m_orientation_pyr[0]);
+    qCDebug(logOrientation, "orient_y: %f", src.m_entity_data.m_orientation_pyr[1]);
+
     for(int i=0; i<3; i++)
     {
-        if(update_rot(src,i))
-        {
-            uint32_t v;
-            v = AngleQuantize(pyr_angles[i],9);
-#ifdef DEBUG_INPUT
-            fprintf(stderr,"v: %d\n", v); // does `v` fall between 0...512
-#endif
-            bs.StoreBits(9,v);
-        }
+        if(!update_rot(src,i))
+            continue;
+
+        uint32_t v = AngleQuantize(pyr_angles[i],9);
+        qCDebug(logOrientation, "v: %d", v); // does `v` fall between 0...512
+        bs.StoreBits(9,v);
     }
 }
 
 void storePosUpdate(const Entity &src, bool just_created, BitStream &bs)
 {
-    bool extra_info = false;
-    bool move_instantly = false;
     PUTDEBUG("before entReceivePosUpdate");
+    bool position_updated = storePosition(src, bs);
 
-    bool position_updated = storePosition(src,bs);
     PUTDEBUG("before posInterpolators");
     if(!just_created && position_updated)
     {
         // if position has changed
         // prepare interpolation table, given previous position
-        bs.StoreBits(1,extra_info); // not extra_info
-        if(extra_info) {
-            bs.StoreBits(1,move_instantly);
+        bs.StoreBits(1, src.m_extra_info); // not extra_info
+        if(src.m_extra_info) {
+            bs.StoreBits(1, src.m_move_instantly);
             // Bintree sending happens here
-            storeUnknownBinTree(src,bs);
+            storeUnknownBinTree(src, bs);
         }
         // if extra_inf
     }
     PUTDEBUG("before storeOrientation");
     storeOrientation(src,bs);
     PUTDEBUG("after storeOrientation");
-
 }
+
 void sendSeqMoveUpdate(const Entity &src,BitStream &bs)
 {
-    //ACE_DEBUG ((LM_DEBUG,ACE_TEXT ("\tSending seq mode update %d\n"),m_seq_update));
-    PUTDEBUG("before sendSeqMoveUpdate");
+    qCDebug(logAnimations, "Sending seq mode update %d", src.m_seq_update);
 
+    PUTDEBUG("before sendSeqMoveUpdate");
     bs.StoreBits(1,src.m_seq_update); // no seq update
     if(src.m_seq_update)
     {
         storePackedBitsConditional(bs,8,src.m_seq_upd_num1); // move index
-        storePackedBitsConditional(bs,4,src.m_seq_upd_num2); //maxval is 255
+        storePackedBitsConditional(bs,4,src.m_seq_upd_num2); // maxval is 255
     }
 }
-void sendSeqTriggeredMoves(const Entity &src,BitStream &bs)
+void sendSeqTriggeredMoves(const Entity &/*src*/,BitStream &bs)
 {
     PUTDEBUG("before sendSeqTriggeredMoves");
-    uint32_t num_moves=0;
-    //ACE_DEBUG ((LM_DEBUG,ACE_TEXT ("\tSending seq triggeted moves %d\n"),num_moves));
+    uint32_t num_moves = 0; // FixMe: num_moves is never modified and the body of the for loop below will never fire.
+    qCDebug(logAnimations, "Sending seq triggered moves %d", num_moves);
+
     bs.StorePackedBits(1,num_moves); // num moves
     for (uint32_t idx = 0; idx < num_moves; ++idx )
     {
-        bs.StorePackedBits(16,0); // 2  EntityStoredMoveP->field_2
-        bs.StorePackedBits(6,0); //0  EntityStoredMoveP->field_0
-        storePackedBitsConditional(bs,16,0); // 1 EntityStoredMoveP->field_1
+        bs.StorePackedBits(16, 0);  // 2  EntityStoredMoveP->field_2
+        bs.StorePackedBits(6, 0);   // 0  EntityStoredMoveP->field_0
+        storePackedBitsConditional(bs, 16, 0);  // 1 EntityStoredMoveP->field_1
     }
 }
+
 void sendNetFx(const Entity &src,BitStream &bs)
 {
     bs.StorePackedBits(1,src.m_num_fx); // num fx
     //NetFx.serializeto();
     for(int i=0; i<src.m_num_fx; i++)
     {
-        bs.StoreBits(8,src.m_fx1[i]); // command
-        bs.StoreBits(32,src.m_fx2[i]); // NetID
-        bs.StoreBits(1,0);
-        storePackedBitsConditional(bs,10,0xCB8); // handle
+        bs.StoreBits(8,src.m_fx1[i].command); // command
+        bs.StoreBits(32,src.m_fx1[i].net_id); // NetID
+        bs.StoreBits(1,src.m_fx1[i].pitch_to_target);
+        storePackedBitsConditional(bs,10, src.m_fx1[i].handle); // handle
         storeBitsConditional(bs,4,0); // client timer
         storeBitsConditional(bs,32,0); // clientTriggerFx
         storeFloatConditional(bs,0.0); // duration
         storeFloatConditional(bs,10.0); // radius
         storeBitsConditional(bs,4,10);  // power
         storeBitsConditional(bs,32,0);  // debris
-        int val=0;
+        int val=0; // FixMe: if comparison below is never true due to this explicit assignment of 0.
         storeBitsConditional(bs,2,val); // origiType
         if(val==1)
         {
@@ -252,77 +251,84 @@ void sendNetFx(const Entity &src,BitStream &bs)
         }
     }
 }
+
 void sendCostumes(const Entity &src,BitStream &bs)
 {
     //NOTE: this will only be initialized once, and no changes later on will influence this
-    static ColorAndPartPacker *packer = g_GlobalMapServer->runtimeData().getPacker();
+    static const ColorAndPartPacker *packer = g_GlobalMapServer->runtimeData().getPacker();
     PUTDEBUG("before sendCostumes");
-    storePackedBitsConditional(bs,2,src.m_costume_type);
-    if(src.m_costume_type!=1)
+    storePackedBitsConditional(bs,2,uint8_t(src.m_costume_type));
+    switch(src.m_costume_type)
     {
-        assert(false);
-        return;
-    }
-    switch(src.m_type)
-    {
-        case Entity::ENT_PLAYER: // client value 1
-            src.m_char.serialize_costumes(bs,packer,true); // we're always sending full info
+        case AppearanceType::WholeCostume: // client value 1
+            src.m_char->serialize_costumes(bs,packer,true); // we're always sending full info
             break;
-        case 3: // client value 2 top level defs from VillainCostume ?
-            bs.StorePackedBits(12,1); // npc costume type idx ?
-            bs.StorePackedBits(1,1); // npc costume idx ?
+        case AppearanceType::NpcCostume: // client value 2 top level defs from VillainCostume ?
+            bs.StorePackedBits(12,src.m_npc->npc_idx); // npc costume type idx ?
+            bs.StorePackedBits(1,src.m_npc->costume_variant); // npc costume idx ?
             break;
-        case Entity::ENT_CRITTER: // client val 4
-            bs.StoreString("Unknown"); // TODO what is stored here?
+        case AppearanceType::SequencerName: // client val 4
+            bs.StoreString("Unknown"); // this is mostly used to send mcguffins :)
+            break;
+        default:
+            assert(false);
             break;
     }
 }
+
 void sendXLuency(BitStream &bs,float val)
 {
     storeBitsConditional(bs,8,std::min(static_cast<int>(uint8_t(val*255)),255));
 }
+
 void sendCharacterStats(const Entity &src,BitStream &bs)
 {
-    bool have_stats=true; // no stats -> dead ?
-    bool stats_changed=true;
-    bool we_have_a_buddy = false;
-    bool our_buddy_is_our_mentor = false;
-    bool we_have_our_buddy_dbid=false;
-    int our_buddy_dbid = 0;
+    // FixMe: have_stats and stats_changed are never modified prior to if comparison below.
+    bool have_stats = true; // no stats -> dead ?
+    bool stats_changed = true;
+
     bs.StoreBits(1,have_stats); // nothing here for now
     if(!have_stats)
         return;
     bs.StoreBits(1,stats_changed);
     if(!stats_changed)
         return;
-    bs.StoreBits(1,we_have_a_buddy);
-    if ( we_have_a_buddy )        // buddy info
+
+    // Store Sidekick Info
+    bs.StoreBits(1,src.m_char->m_char_data.m_sidekick.m_has_sidekick);
+    if(src.m_char->m_char_data.m_sidekick.m_has_sidekick)
     {
-        bs.StoreBits(1,our_buddy_is_our_mentor);
-        bs.StoreBits(1,we_have_our_buddy_dbid);
-        if(we_have_our_buddy_dbid)
-        {
-           bs.StorePackedBits(20,our_buddy_dbid);
-        }
+        Sidekick sidekick = src.m_char->m_char_data.m_sidekick;
+        bool is_mentor = isSidekickMentor(src);
+        bool has_dbid  = (sidekick.m_db_id != 0);
+
+        bs.StoreBits(1,is_mentor);
+        bs.StoreBits(1, has_dbid);
+        if(has_dbid)
+            bs.StorePackedBits(20,sidekick.m_db_id);
     }
-    serializeStats(src.m_char,bs,false);
+
+    serializeStats(*src.m_char,bs,false);
 }
+
 void sendBuffsConditional(const Entity &src,BitStream &bs)
 {
     //TODO: implement this
-    bs.StoreBits(1,0); // nothing here for now
-    if(false)
+    bool have_buffs = false;
+    bs.StoreBits(1,have_buffs); // nothing here for now
+    if(have_buffs)
     {
         sendBuffs(src,bs);
     }
 }
+
 void sendTargetUpdate(const Entity &src,BitStream &bs)
 {
     uint32_t assist_id  = getAssistTargetIdx(src);
     uint32_t target_id  = getTargetIdx(src);
-    bool has_target     = src.m_has_target;
+    bool has_target     = (target_id != 0);
 
-    bs.StoreBits(1,has_target); // TODO: test this
+    bs.StoreBits(1,has_target);
     if(!has_target)
         return;
     bs.StoreBits(1,target_id!=0);
@@ -332,6 +338,7 @@ void sendTargetUpdate(const Entity &src,BitStream &bs)
     if(assist_id!=0)
         bs.StorePackedBits(12,assist_id);
 }
+
 void sendOnOddSend(const Entity &src,BitStream &bs)
 {
     // if this is set the entity on client will :
@@ -340,23 +347,26 @@ void sendOnOddSend(const Entity &src,BitStream &bs)
     //
     bs.StoreBits(1,src.m_odd_send);
 }
+
 void sendWhichSideOfTheForce(const Entity &src,BitStream &bs)
 {
-    bs.StoreBits(1,0); // on team evil ?
-    bs.StoreBits(1,1); // on team good ?
+    bs.StoreBits(1,src.m_is_villian); // on team evil ?
+    bs.StoreBits(1,src.m_is_hero); // on team good ?
 }
 void sendEntCollision(const Entity &src,BitStream &bs)
 {
     // if 1 is sent, client will disregard it's own collision processing.
-    bs.StoreBits(1,0); // 1/0 only
+    bs.StoreBits(1, src.inp_state.m_no_collision); // 1/0 only
 }
+
 void sendNoDrawOnClient(const Entity &src,BitStream &bs)
 {
-    bs.StoreBits(1,0); // 1/0 only
+    bs.StoreBits(1, src.m_no_draw_on_client); // 1/0 only
 }
+
 void sendAFK(const Entity &src, BitStream &bs)
 {
-    CharacterData cd = src.m_char.m_char_data;
+    CharacterData cd = src.m_char->m_char_data;
     bool hasMsg = !cd.m_afk_msg.isEmpty();
     bs.StoreBits(1, cd.m_afk); // 1/0 only
     if(cd.m_afk)
@@ -366,20 +376,22 @@ void sendAFK(const Entity &src, BitStream &bs)
             bs.StoreString(cd.m_afk_msg);
     }
 }
+
 void sendOtherSupergroupInfo(const Entity &src,BitStream &bs)
 {
-    bs.StoreBits(1,src.m_supergroup.m_SG_info); // UNFINISHED
-    if(!src.m_supergroup.m_SG_info)
+    bs.StoreBits(1,src.m_has_supergroup); // src.m_has_supergroup?
+    if(!src.m_has_supergroup)
         return;
     bs.StorePackedBits(2,src.m_supergroup.m_SG_id);
     if(src.m_supergroup.m_SG_id)
     {
         bs.StoreString(src.m_supergroup.m_SG_name);//64 chars max
-        bs.StoreString("");//128 chars max -> hash table key from the CostumeString_HTable
+        bs.StoreString("");//128 chars max -> hash table key from the CostumeString_HTable. Maybe emblem?
         bs.StoreBits(32,src.m_supergroup.m_SG_color1); // supergroup color 1
         bs.StoreBits(32,src.m_supergroup.m_SG_color2); // supergroup color 2
     }
 }
+
 void sendLogoutUpdate(const Entity &src,ClientEntityStateBelief &belief,BitStream &bs)
 {
     if(belief.m_is_logging_out==src.m_is_logging_out) // no change in logout state
@@ -393,10 +405,9 @@ void sendLogoutUpdate(const Entity &src,ClientEntityStateBelief &belief,BitStrea
     storePackedBitsConditional(bs,5,src.m_is_logging_out ? src.m_time_till_logout/(1000) : 0);
     belief.m_is_logging_out = src.m_is_logging_out;
 }
-
 ////////////////////////////////////////////////////////////////////////////////////////////
 } // end of anonoymous namespace
-void sendBuffs(const Entity &src,BitStream &bs)
+void sendBuffs(const Entity &/*src*/,BitStream &bs)
 {
     bs.StorePackedBits(5,0);
 }
@@ -445,7 +456,9 @@ void serializeto(const Entity & src, ClientEntityStateBelief &belief, BitStream 
     {
         sendCostumes(src,bs);
         sendXLuency(bs,src.translucency);
-        src.m_char.sendTitles(bs,NameFlag::HasName,ConditionalFlag::Conditional);
+        bs.StoreBits(1, src.m_char->m_char_data.m_has_titles); // Does entity have titles?
+        if(src.m_char->m_char_data.m_has_titles)
+            src.m_char->sendTitles(bs,NameFlag::HasName,ConditionalFlag::Conditional);
     }
     if(src.m_pchar_things)
     {
@@ -464,3 +477,5 @@ void serializeto(const Entity & src, ClientEntityStateBelief &belief, BitStream 
         sendLogoutUpdate(src,belief,bs);
     }
 }
+
+//! @}

@@ -1,3 +1,10 @@
+/*
+ * SEGS - Super Entity Game Server
+ * http://www.segs.io/
+ * Copyright (c) 2006 - 2018 SEGS Team (see Authors.txt)
+ * This software is licensed! (See License.txt for details)
+ */
+
 #ifndef SIDEWINDOW_H
 #define SIDEWINDOW_H
 
@@ -5,21 +12,27 @@
 
 #include <QAbstractItemModel>
 
-namespace Ui {
-class SideWindow;
+namespace Ui
+{
+    class SideWindow;
 }
-namespace Urho3D {
-class Node;
-class Scene;
-class StaticModel;
-class Vector3;
-class Drawable;
+
+namespace Urho3D
+{
+    class Node;
+    class Scene;
+    class StaticModel;
+    class Vector3;
+    class Drawable;
 }
+
 struct CoHSceneGraph;
 struct CoHNode;
 struct CoHModel;
+struct ConvertedRootNode;
 
 class MapViewerApp;
+
 class SideWindow : public QMainWindow
 {
     Q_OBJECT
@@ -34,19 +47,16 @@ signals:
     void scenegraphSelected(const QString &path);
     void nodeSelected(CoHNode *n);
     void nodeDisplayRequest(CoHNode *n,bool isroot);
+    void refDisplayRequest(ConvertedRootNode *n,bool show_all);
 public slots:
     void onCameraPositionChanged(float x,float y,float z);
     void onModelSelected(CoHNode*n, CoHModel*m, Urho3D::Drawable*d);
     void onScenegraphLoaded(const CoHSceneGraph &sc);
 private slots:
     void on_actionLoad_Scene_Graph_triggered();
-
     void on_actionSet_data_paths_triggered();
-
     void on_nodeList_clicked(const QModelIndex &index);
-
     void on_nodeList_doubleClicked(const QModelIndex &index);
-
 private:
     MapViewerApp *m_map_viewer;
     Ui::SideWindow *ui;

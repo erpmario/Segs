@@ -1,3 +1,15 @@
+/*
+ * SEGS - Super Entity Game Server
+ * http://www.segs.io/
+ * Copyright (c) 2006 - 2018 SEGS Team (see Authors.txt)
+ * This software is licensed! (See License.txt for details)
+ */
+
+/*!
+ * @addtogroup piggtool Projects/CoX/Utilities/piggtool
+ * @{
+ */
+
 #include <stdio.h>
 #include <QtCore/QFileInfo>
 #include <QtCore/QFile>
@@ -8,6 +20,7 @@
 
 #include <vector>
 #include <cassert>
+
 namespace {
 #pragma pack(push, 1)
 struct PiggHeader
@@ -19,6 +32,7 @@ struct PiggHeader
     int16_t used_header_bytes;
     uint32_t num_entries;
 };
+
 struct PiggInternalHeader
 {
     int flag;
@@ -29,12 +43,14 @@ struct PiggInternalHeader
     int unused[6];
     uint32_t packed_size;
 };
+
 #pragma pack(pop)
 struct Pigg_DataTable
 {
     int datapool_flag;
     std::vector<QString> data_parts;
 };
+
 struct PiggFile
 {
    PiggHeader hdr;
@@ -47,6 +63,7 @@ template<class POD>
 bool readPOD(QIODevice &src,POD &tgt) {
     return sizeof(POD)==src.read((char *)&tgt,sizeof(POD));
 }
+
 //Unpack the ZIP data using qt functions, need to prepend the uncompressed data size to the source data.
 QByteArray uncompr_zip(QByteArray &compressed_data,uint32_t size_uncom) {
     compressed_data.prepend( char((size_uncom >> 0) & 0xFF));
@@ -76,6 +93,7 @@ bool loadDataTable(QFile &src,Pigg_DataTable &target) {
     }
     return true;
 }
+
 bool loadPigg(const QString &fname,PiggFile &pigg)
 {
     QFile src_fl(fname);
@@ -139,6 +157,7 @@ bool loadPigg(const QString &fname,PiggFile &pigg)
     qDebug() << "Header loaded";
     return true;
 }
+
 void dumpFileList(PiggFile &pigg)
 {
     qDebug() << "Filename    -  Compressed Size - Actual size";
@@ -146,6 +165,7 @@ void dumpFileList(PiggFile &pigg)
         qDebug().noquote() << pigg.strings_table.data_parts[ih.name_id] << "  " <<ih.packed_size<<"  "<<ih.size;
     }
 }
+
 void saveFile(const QString &fname,const QByteArray &data) {
     QFile tgt_fl(fname);
     if(!tgt_fl.open(QFile::WriteOnly)) {
@@ -157,7 +177,8 @@ void saveFile(const QString &fname,const QByteArray &data) {
     }
 
 }
-void extractAllFiles(PiggFile &pigg)
+
+void extractAllFiles(PiggFile &pigg,const QString &tgt_path)
 {
     QFile src_fl(pigg.fname);
     if(!src_fl.open(QFile::ReadOnly)) {
@@ -167,21 +188,22 @@ void extractAllFiles(PiggFile &pigg)
     const QDir curdir(QDir::current());
     for(const PiggInternalHeader & ih : pigg.headers) {
         const QString target_fname=pigg.strings_table.data_parts[ih.name_id];
-        qDebug().noquote() << "Extracting"<<target_fname;
+        //qDebug().noquote() << "Extracting"<<target_fname;
         src_fl.seek(ih.offset);
         bool was_packed = ih.packed_size!=0;
         QByteArray src_data = src_fl.read(was_packed ? ih.packed_size : ih.size);
-        const QFileInfo fi(target_fname);
+        const QFileInfo fi(tgt_path+"/"+target_fname);
         if(!curdir.exists(fi.path()))
             curdir.mkpath(fi.path());
         if(was_packed) {
             QByteArray actual_data = uncompr_zip(src_data,ih.size);
             src_data = actual_data;
         }
-        saveFile(target_fname,src_data);
+        saveFile(tgt_path+"/"+target_fname,src_data);
     }
 }
 }
+
 int main(int argc, char **argv)
 {
     QCoreApplication app(argc,argv);
@@ -192,14 +214,16 @@ int main(int argc, char **argv)
         {"x", "Extract all files from pigg archive "},
     });
     parser.addPositionalArgument("pigg_file", "File to process");
+    parser.addPositionalArgument("target_directory", "directory to put extracted files in");
     parser.addHelpOption();
 
     parser.process(app);
     if(parser.positionalArguments().isEmpty() || parser.optionNames().isEmpty()) {
         parser.showHelp(0);
     }
-
-    const QString pigg_name = parser.positionalArguments().constFirst();
+    QStringList positionals = parser.positionalArguments();
+    const QString &pigg_name = positionals.constFirst();
+    QString target_dir = positionals.count()>1 ? positionals[1] : "data";
     PiggFile hdr;
     if(!loadPigg(pigg_name,hdr))
     {
@@ -209,7 +233,9 @@ int main(int argc, char **argv)
         dumpFileList(hdr);
     }
     else if(parser.isSet("x")) {
-        extractAllFiles(hdr);
+        extractAllFiles(hdr,target_dir);
     }
     return 0;
 }
+
+//! @}

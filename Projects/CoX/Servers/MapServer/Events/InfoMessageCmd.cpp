@@ -1,8 +1,20 @@
-//#define DEBUG_CHAT
-//#include "InfoMessageCmd.h"
-#include "Entity.h"
-#include "MapClient.h"
+/*
+ * SEGS - Super Entity Game Server
+ * http://www.segs.io/
+ * Copyright (c) 2006 - 2018 SEGS Team (see Authors.txt)
+ * This software is licensed! (See License.txt for details)
+ */
+
+/*!
+ * @addtogroup MapServerEvents Projects/CoX/Servers/MapServer/Events
+ * @{
+ */
+
+#include "InfoMessageCmd.h"
+
 #include "Servers/MapServer/DataHelpers.h"
+#include "MapClientSession.h"
+#include "Logging.h"
 
 void InfoMessageCmd::serializeto(BitStream &bs) const
 {
@@ -11,18 +23,19 @@ void InfoMessageCmd::serializeto(BitStream &bs) const
     bs.StoreString(m_msg);
 }
 
-void sendInfoMessage(MessageChannel t, QString msg, MapClient *tgt)
+void sendInfoMessage(MessageChannel t, QString msg, MapClientSession *tgt)
 {
 
     InfoMessageCmd * res = new InfoMessageCmd(t,msg);
-    res->m_target_player_id = getIdx(*tgt->char_entity());
+    res->m_target_player_id = getIdx(*tgt->m_ent);
 
     tgt->addCommandToSendNextUpdate(std::unique_ptr<InfoMessageCmd>(res));
 
-#ifdef DEBUG_CHAT
-    qDebug().noquote() << "InfoMessage:"
+
+    qCDebug(logInfoMsg).noquote() << "InfoMessage:"
              << "\n  Channel:" << int(res->m_channel_type)
              << "\n  Target:" << res->m_target_player_id
              << "\n  Message:" << res->m_msg;
-#endif
 }
+
+//! @}

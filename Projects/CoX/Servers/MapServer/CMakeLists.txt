@@ -10,19 +10,22 @@ SET(target_CPP
     Events/GameCommandList.cpp
     Events/ChatDividerMoved.cpp
     Events/ChatMessage.cpp
-    Events/ClientSettings.cpp
     Events/EntitiesResponse.cpp
     Events/InputState.cpp
     Events/LocationVisited.cpp
     Events/PlaqueVisited.cpp
     Events/NewEntity.cpp
+    Events/SaveClientOptions.cpp
     Events/SceneEvent.cpp
     Events/InfoMessageCmd.cpp
-    MapClient.cpp
+    Events/WindowState.cpp
+    NpcStore.cpp
+    NpcGenerator.cpp
     MapEventFactory.cpp
     MapInstance.cpp
     MapLink.cpp
     MapManager.cpp
+    MapSceneGraph.cpp
     MapServer.cpp
     MapServerData.cpp
     MapTemplate.cpp
@@ -38,24 +41,38 @@ SET(target_INCLUDE
     Events/GameCommandList.h
     Events/ChatDividerMoved.h
     Events/ChatMessage.h
-    Events/ClientSettings.h
+    Events/EmailHeaders.h
+    Events/EmailMessageStatus.h
+    Events/EmailRead.h
     Events/EntitiesResponse.h
+    Events/FloatingDamage.h
+    Events/FriendsListUpdate.h
     Events/InputState.h
     Events/LocationVisited.h
-    Events/PlaqueVisited.h
-    Events/NewEntity.h
     Events/MapEventTypes.h
+    Events/MessageChannels.h
+    Events/NewEntity.h
+    Events/PlaqueVisited.h
+    Events/PlayerInfo.h
+    Events/SaveClientOptions.h
     Events/SceneEvent.h
     Events/Shortcuts.h
+    Events/SidekickOffer.h
     Events/StandardDialogCmd.h
+    Events/TeamLooking.h
+    Events/TeamOffer.h
     Events/InfoMessageCmd.h
-    MapClient.h
+    Events/InteractWithEntity.h
+    Events/WindowState.h
+    NpcStore.h
+    NpcGenerator.h
     MapEventFactory.h
     MapEvents.h
     MapInstance.h
     MapLink.h
     MapManager.h
     MapRef.h
+    MapSceneGraph.h
     MapServer.h
     MapServerData.h
     MapTemplate.h
@@ -74,7 +91,11 @@ ${target_CPP}
 ${target_INCLUDE}
 )
 ADD_LIBRARY(mapserver_lib STATIC ${target_SOURCES})
+<<<<<<< HEAD
 target_link_libraries(mapserver_lib PUBLIC adminserver_lib CRUDP_Protocol map_loader)
+=======
+target_link_libraries(mapserver_lib PUBLIC CRUDP_Protocol common_runtime)
+>>>>>>> upstream/master
 qt5_use_modules(mapserver_lib LINK_PUBLIC Core)
 if(ENABLE_SCRIPTING_ENGINE)
     target_compile_definitions(mapserver_lib PUBLIC -DSCRIPTING_ENABLED=1)

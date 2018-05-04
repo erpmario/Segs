@@ -1,5 +1,13 @@
+/*
+ * SEGS - Super Entity Game Server
+ * http://www.segs.io/
+ * Copyright (c) 2006 - 2018 SEGS Team (see Authors.txt)
+ * This software is licensed! (See License.txt for details)
+ */
+
 #pragma once
 #include "Colors.h"
+#include "Logging.h"
 #include <glm/vec3.hpp>
 #include <glm/vec2.hpp>
 #include <cereal/archives/json.hpp>
@@ -9,7 +17,6 @@
 #include <cereal/types/string.hpp>
 #include <cereal/cereal.hpp>
 
-#include <QtCore/QDebug>
 #include <QtCore/QString>
 #include <QtCore/QFile>
 
@@ -41,6 +48,7 @@ void commonSaveTo(const T & target, const char *classname, const QString & baseN
     }
     tgt_fle.write(tgt.str().c_str(),tgt.str().size());
 }
+
 template<class T>
 bool commonReadFrom(const QString &crl_path,const char *classname, T &target) {
     QFile ifl(crl_path);
@@ -74,6 +82,30 @@ bool commonReadFrom(const QString &crl_path,const char *classname, T &target) {
     return true;
 }
 
+template<class T>
+void serializeToQString(const T &data, QString &tgt)
+{
+    std::ostringstream ostr;
+    {
+        cereal::JSONOutputArchive ar(ostr);
+        ar(data);
+    }
+    tgt = QString::fromStdString(ostr.str());
+}
+
+template<class T>
+void serializeFromQString(T &data,const QString &src)
+{
+    if(src.isEmpty())
+        return;
+    std::istringstream istr;
+    istr.str(src.toStdString());
+    {
+        cereal::JSONInputArchive ar(istr);
+        ar(data);
+    }
+}
+
 namespace cereal {
 inline void epilogue(BinaryOutputArchive &, QString const &) { }
 inline void epilogue(BinaryInputArchive &, QString const &) { }
@@ -89,6 +121,7 @@ template<class Archive> inline void CEREAL_SAVE_FUNCTION_NAME(Archive & ar, ::QS
 {
     ar( str.toStdString() );
 }
+
 //! Serialization for basic_string types, if binary data is supported
 template<class Archive> inline void CEREAL_LOAD_FUNCTION_NAME(Archive & ar, ::QString & str)
 {
@@ -96,6 +129,7 @@ template<class Archive> inline void CEREAL_LOAD_FUNCTION_NAME(Archive & ar, ::QS
     ar( rd );
     str = QString::fromStdString(rd);
 }
+
 template<class Archive>
 void serialize(Archive & archive, glm::vec3 & m)
 {
@@ -104,6 +138,7 @@ void serialize(Archive & archive, glm::vec3 & m)
     for( int i=0; i<3; ++i )
       archive( m[i] );
 }
+
 template<class Archive>
 void serialize(Archive & archive, glm::vec2 & m)
 {

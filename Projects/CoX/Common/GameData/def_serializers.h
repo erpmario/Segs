@@ -1,3 +1,10 @@
+/*
+ * SEGS - Super Entity Game Server
+ * http://www.segs.io/
+ * Copyright (c) 2006 - 2018 SEGS Team (see Authors.txt)
+ * This software is licensed! (See License.txt for details)
+ */
+
 #pragma once
 #include <stdint.h>
 #include <vector>
@@ -32,4 +39,3 @@ void saveTo(const Parse_AllOrigins & target, const QString &baseName, bool text_
 constexpr const static uint32_t pischedule_i0_requiredCrc = 0x27267F27;
 bool loadFrom(BinStore *s,Parse_PI_Schedule *target);
 void saveTo(const Parse_PI_Schedule & target, const QString &baseName, bool text_format=false);
-;

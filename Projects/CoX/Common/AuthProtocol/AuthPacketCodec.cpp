@@ -1,9 +1,13 @@
 /*
- * Super Entity Game Server Project
- * http://segs.sf.net/
- * Copyright (c) 2006 - 2016 Super Entity Game Server Team (see Authors.txt)
+ * SEGS - Super Entity Game Server
+ * http://www.segs.io/
+ * Copyright (c) 2006 - 2018 SEGS Team (see Authors.txt)
  * This software is licensed! (See License.txt for details)
- *
+ */
+
+/*!
+ * @addtogroup AuthProtocol Projects/CoX/Common/AuthProtocol
+ * @{
  */
 
 //#include <stdio.h>
@@ -12,7 +16,7 @@
 
 static void scrunch(const unsigned char *, unsigned long *);
 static void unscrun(const unsigned long *, unsigned char *);
-static void desfunc(register unsigned long *block,const register unsigned long *keys);
+static void desfunc(unsigned long *block,const unsigned long *keys);
 static void cookey(unsigned long *);
 static void usekey(const unsigned long *);
 
@@ -75,7 +79,7 @@ static void deskey(const unsigned char *key,short edf) /* Thanks to James Gillog
     cookey(kn);
     return;
 }
-static void cookey(register unsigned long *raw1)
+static void cookey(unsigned long *raw1)
 {
     unsigned long *cook, *raw0;
     unsigned long dough[32];
@@ -95,33 +99,33 @@ static void cookey(register unsigned long *raw1)
     usekey(dough);
     return;
 }
-static void cpkey(register unsigned long *into)
+static void cpkey(unsigned long *into)
 {
     unsigned long *from, *endp;
     from = KnL, endp = &KnL[32];
     while( from < endp ) *into++ = *from++;
     return;
 }
-static void usekey(const register unsigned long *from)
+static void usekey(const unsigned long *from)
 {
     unsigned long *to, *endp;
     to = KnL, endp = &KnL[32];
     while( to < endp ) *to++ = *from++;
     return;
 }
-static void scrunch(const register unsigned char *outof, register unsigned long *into)
+static void scrunch(const unsigned char *outof, unsigned long *into)
 {
-    *into = (*outof++ & 0xffL) << 24;
-    *into |= (*outof++ & 0xffL) << 16;
-    *into |= (*outof++ & 0xffL) << 8;
-    *into++ |= (*outof++ & 0xffL);
-    *into = (*outof++ & 0xffL) << 24;
-    *into |= (*outof++ & 0xffL) << 16;
-    *into |= (*outof++ & 0xffL) << 8;
-    *into |= (*outof & 0xffL);
+    *into = (*outof++ & 0xffUL) << 24;
+    *into |= (*outof++ & 0xffUL) << 16;
+    *into |= (*outof++ & 0xffUL) << 8;
+    *into++ |= (*outof++ & 0xffUL);
+    *into = (*outof++ & 0xffUL) << 24;
+    *into |= (*outof++ & 0xffUL) << 16;
+    *into |= (*outof++ & 0xffUL) << 8;
+    *into |= (*outof & 0xffUL);
     return;
 }
-static void unscrun(const register unsigned long *outof, register unsigned char *into)
+static void unscrun(const unsigned long *outof, unsigned char *into)
 {
     *into++ = (*outof >> 24) & 0xffL;
     *into++ = (*outof >> 16) & 0xffL;
@@ -269,7 +273,7 @@ static unsigned long SP8[64] = {
     0x10040000L, 0x10001000L, 0x10001040L, 0x00000000L,
     0x10041040L, 0x00041000L, 0x00041000L, 0x00001040L,
     0x00001040L, 0x00040040L, 0x10000000L, 0x10041000L };
-static void desfunc(register unsigned long *block,const register unsigned long *keys)
+static void desfunc(unsigned long *block,const unsigned long *keys)
 {
     unsigned long fval, work, right, leftt;
     int round;
@@ -402,19 +406,17 @@ void AuthPacketCodec::SetXorKey(int key)
         xor_enc_key = xor_dec_key = 0x87546CA100000000LL | key;
 
 }
-int AuthPacketCodec::Code(unsigned char *buffer,size_t  size)
+void AuthPacketCodec::Code(unsigned char *buffer,size_t size)
 {
     DesCode(buffer,size);
     if(xor_enc_key)
         XorCodeBuf(buffer,size);
-    return size;
 }
-int AuthPacketCodec::Decode(unsigned char *buffer,size_t  size)
+void AuthPacketCodec::Decode(unsigned char *buffer,size_t size)
 {
     DesDecode(buffer,size);
     if(xor_dec_key)
         XorDecodeBuf(buffer,size);
-    return size;
 }
 void AuthPacketCodec::DesDecode(unsigned char *in_block,size_t size) const
 {
@@ -431,3 +433,5 @@ void AuthPacketCodec::DesDecode(unsigned char *in_block,size_t size) const
     }
 
 }
+
+//! @}

@@ -1,15 +1,13 @@
 /*
- * Super Entity Game Server Project
- * http://segs.sf.net/
- * Copyright (c) 2006 - 2016 Super Entity Game Server Team (see Authors.txt)
+ * SEGS - Super Entity Game Server
+ * http://www.segs.io/
+ * Copyright (c) 2006 - 2018 SEGS Team (see Authors.txt)
  * This software is licensed! (See License.txt for details)
- *
-
  */
 
 #pragma once
 
-#include "Entity.h"
+#include "NetStructures/Entity.h"
 #include "Servers/MapServer/DataHelpers.h"
 
 #include <ace/Thread_Mutex.h>
@@ -18,23 +16,25 @@
 #include <set>
 #include <deque>
 
-class MapClient;
+struct MapClientSession;
 class MapInstance;
 class Entity;
 class BitStream;
+
 class EntityStore
 {
 public:
     EntityStore();
-    std::deque<int32_t> m_free_entries;
+    std::deque<uint32_t> m_free_entries;
     std::array<Entity,10240> m_map_entities;
     Entity *get();
     void release(Entity *src);
 };
+
 class EntityManager
 {
     struct EntityIdxCompare {
-        bool operator()(Entity *a,Entity *b) const {
+        bool operator()(const Entity *a,const Entity *b) const {
             return getIdx(*a) < getIdx(*b);
         }
     };
@@ -45,25 +45,16 @@ public:
                     EntityManager();
     void            sendDebuggedEntities(BitStream &tgt) const;
     void            sendGlobalEntDebugInfo(BitStream &tgt) const;
-    void            sendDeletes(BitStream &tgt, MapClient *client) const;
-    void            sendEntities(BitStream &tgt, MapClient *target, bool is_incremental) const;
+    void            sendDeletes(BitStream &tgt, MapClientSession *client) const;
+    void            sendEntities(BitStream &tgt, MapClientSession *target, bool is_incremental) const;
     void            InsertPlayer(Entity *);
     Entity *        CreatePlayer();
+    Entity *        CreateNpc(const Parse_NPC &tpl, int idx, int variant);
+    Entity *        CreateGeneric(const Parse_NPC &tpl, int idx, int variant, EntType type);
     void            removeEntityFromActiveList(Entity *ent);
     size_t          active_entities() { return m_live_entlist.size(); }
     ACE_Thread_Mutex &getEntitiesMutex() { return m_mutex; }
-    Entity *        getEntity(const QString &name);
-    Entity *        getEntity(const int32_t &idx);
 
 protected:
     mutable ACE_Thread_Mutex m_mutex; // used to prevent world state reads during updates
-};
-
-class EntityStorage
-{
-public:
-//  void NewPlayer(MapClient *client,Entity *player_ent); // stores fresh player avatar
-//  void StorePlayer(MapClient *client,Entity *player_ent); // stores player avatar
-        Entity *    CreatePlayer(MapClient *client,int avatar_id); // retrieves client avatar from storage
-        Entity *    CreateInstance(MapInstance *target_world,uint64_t id); // will create a new instance of given entity, bound to given map
 };

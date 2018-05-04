@@ -7,9 +7,11 @@ SET(target_CPP
     Buffer.cpp
     ConfigExtension.cpp
     EventProcessor.cpp
+    SEGSEvent.cpp
     SEGSTimer.cpp
     FixedPointValue.cpp
     Settings.cpp
+    Logging.cpp
 )
 SET(target_INCLUDE
     BitStream.h
@@ -21,6 +23,7 @@ SET(target_INCLUDE
     SEGSTimer.h
     FixedPointValue.h
     Settings.h
+    Logging.h
 )
 
 SET(target_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR})

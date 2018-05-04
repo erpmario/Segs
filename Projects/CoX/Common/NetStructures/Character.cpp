@@ -1,43 +1,57 @@
 /*
- * Super Entity Game Server Project
- * http://segs.sf.net/
- * Copyright (c) 2006 - 2016 Super Entity Game Server Team (see Authors.txt)
+ * SEGS - Super Entity Game Server
+ * http://www.segs.io/
+ * Copyright (c) 2006 - 2018 SEGS Team (see Authors.txt)
  * This software is licensed! (See License.txt for details)
- *
  */
+
+/*!
+ * @addtogroup NetStructures Projects/CoX/Common/NetStructures
+ * @{
+ */
+
 #include "Character.h"
 
 #include "BitStream.h"
 #include "Entity.h"
 #include "Costume.h"
-#include "GameData/keybind_definitions.h"
+#include "Friend.h"
+#include "GameData/serialization_common.h"
+#include "Servers/GameDatabase/GameDBSyncEvents.h"
+#include "GameData/chardata_serializers.h"
+#include "GameData/entitydata_serializers.h"
+#include "GameData/playerdata_definitions.h"
+#include "GameData/playerdata_serializers.h"
 #include "Servers/MapServer/DataHelpers.h"
+#include "Logging.h"
 #include <QtCore/QString>
 #include <QtCore/QDebug>
 
 // Anonymous namespace
 namespace {
-    
+
 }
 // End Anonymous namespace
 
 Character::Character()
 {
-    m_multiple_costumes              = false;
-    m_current_costume_idx            = 0;
-    m_current_costume_set            = false;
-    m_char_data.m_supergroup_costume = false;
-    m_sg_costume                     = nullptr;
-    m_char_data.m_using_sg_costume   = false;
-    m_current_attribs.m_HitPoints    = 25;
-    m_max_attribs.m_HitPoints        = 50;
-    m_current_attribs.m_Endurance    = 33;
-    m_max_attribs.m_Endurance        = 43;
+    m_multiple_costumes                         = false;
+    m_current_costume_idx                       = 0;
+    m_current_costume_set                       = false;
+    m_char_data.m_supergroup_costume            = false;
+    m_sg_costume                                = nullptr;
+    m_char_data.m_using_sg_costume              = false;
+    m_char_data.m_current_attribs.m_HitPoints   = 25;
+    m_max_attribs.m_HitPoints                   = 50;
+    m_char_data.m_current_attribs.m_Endurance   = 33;
+    m_max_attribs.m_Endurance                   = 43;
     m_char_data.m_has_titles = m_char_data.m_has_the_prefix
             || !m_char_data.m_titles[0].isEmpty()
             || !m_char_data.m_titles[1].isEmpty()
             || !m_char_data.m_titles[2].isEmpty();
+    m_char_data.m_sidekick.m_has_sidekick = false;
 }
+
 void Character::reset()
 {
     m_char_data.m_level=0;
@@ -45,17 +59,15 @@ void Character::reset()
     m_char_data.m_class_name="EMPTY";
     m_char_data.m_origin_name="EMPTY";
     m_villain=false;
-    m_char_data.m_mapName="EMPTY";
+    m_char_data.m_mapName="OFFLINE";
     m_multiple_costumes=false;
     m_current_costume_idx=0;
     m_current_costume_set=false;
     m_char_data.m_supergroup_costume=false;
     m_sg_costume=nullptr;
     m_char_data.m_using_sg_costume=false;
-    m_first_person_view_toggle=false;
-    m_full_options = false;
     m_char_data.m_has_titles = false;
-    m_char_data.m_cur_chat_channel = 10;   // Default is local
+    m_char_data.m_sidekick.m_has_sidekick = false;
 }
 
 
@@ -63,26 +75,6 @@ bool Character::isEmpty()
 {
     return ( 0==m_name.compare("EMPTY",Qt::CaseInsensitive)&&
             (0==m_char_data.m_class_name.compare("EMPTY",Qt::CaseInsensitive)));
-}
-
-void Character::sendWindow(BitStream &bs) const
-{
-    bs.StorePackedBits(1,0);
-    bs.StorePackedBits(1,0);
-    bs.StorePackedBits(1,0); // visible ?
-    bs.StorePackedBits(1,0);
-    bs.StorePackedBits(1,0); // color
-    bs.StorePackedBits(1,0); // alpha
-    bool draggable=false;
-    bs.StoreBits(1,draggable);
-    if(draggable)
-    {
-        int width=0;
-        int height=0;
-        bs.StorePackedBits(1,width);
-        bs.StorePackedBits(1,height);
-    }
-    //storeFloatConditional(bs,1.0f);
 }
 
 void Character::setName(const QString &val )
@@ -98,11 +90,6 @@ void Character::sendTray(BitStream &bs) const
     m_trays.serializeto(bs);
 }
 
-void Character::sendTrayMode(BitStream &bs) const
-{
-    bs.StoreBits(1,0);
-}
-
 void Character::GetCharBuildInfo(BitStream &src)
 {
     m_char_data.m_level=0;
@@ -116,6 +103,7 @@ void Character::GetCharBuildInfo(BitStream &src)
     m_powers.push_back(secondary); // secondary_powerset power
     m_trays.serializefrom(src);
 }
+
 void Character::SendCharBuildInfo(BitStream &bs) const
 {
     Character c = *this;
@@ -127,13 +115,13 @@ void Character::SendCharBuildInfo(BitStream &bs) const
 
     {
         // TODO: this is character powers related, refactor it out of here.
-        int count=0;
+        int count=0; // FixMe: count is explicitly set and never modified.
         bs.StorePackedBits(4,count); // count
         for(int i=0; i<count; i++)
         {
             uint32_t num_powers=m_powers.size();
             bs.StorePackedBits(5,0);
-            bs.StorePackedBits(4,uint32_t(num_powers));
+            bs.StorePackedBits(4,num_powers);
             for(const CharacterPower &power : m_powers)
             {
                 //sendPower(bs,0,0,0);
@@ -163,7 +151,7 @@ void Character::SendCharBuildInfo(BitStream &bs) const
         {
             for(size_t row=0; row<max_num_rows; ++row)
             {
-                bool is_power=false;
+                bool is_power=false; // FixMe: is_power is explicitly set and never modified.
                 bs.StoreBits(1,is_power);
                 if(is_power)
                     null_power.serializeto(bs);
@@ -172,7 +160,7 @@ void Character::SendCharBuildInfo(BitStream &bs) const
     }
     PUTDEBUG("SendCharBuildInfo after inspirations");
     // boosts
-    uint32_t num_boosts=0;
+    uint32_t num_boosts=0; // FixMe: num_boosts is never modified and the body of the for loop below will never fire.
     bs.StorePackedBits(5,num_boosts); // count
     for(size_t idx=0; idx<num_boosts; ++idx)
     {
@@ -204,21 +192,21 @@ void Character::serializetoCharsel( BitStream &bs )
         CharacterCostume::NullCostume.storeCharsel(bs);
     }
     else
-        m_costumes[m_current_costume_set]->storeCharsel(bs);
+        m_costumes[m_current_costume_set].storeCharsel(bs);
     bs.StoreString(getMapName(c));
     bs.StorePackedBits(1,1);
 }
 
-Costume * Character::getCurrentCostume() const
+const CharacterCostume * Character::getCurrentCostume() const
 {
-    assert(m_costumes.size()>0);
+    assert(!m_costumes.empty());
     if(m_current_costume_set)
-        return m_costumes[m_current_costume_idx];
+        return &m_costumes[m_current_costume_idx];
     else
-        return m_costumes[0];
+        return &m_costumes[0];
 }
 
-void Character::serialize_costumes(BitStream &bs, ColorAndPartPacker *packer , bool all_costumes) const
+void Character::serialize_costumes(BitStream &bs, const ColorAndPartPacker *packer , bool all_costumes) const
 {
     // full costume
     if(all_costumes) // this is only sent to the current player
@@ -232,14 +220,14 @@ void Character::serialize_costumes(BitStream &bs, ColorAndPartPacker *packer , b
         bs.StoreBits(1,m_multiple_costumes);
         if(m_multiple_costumes)
         {
-            for(Costume * c : m_costumes)
+            for(const Costume & c : m_costumes)
             {
-                ::serializeto(*c,bs,packer);
+                ::serializeto(c,bs,packer);
             }
         }
         else
         {
-            ::serializeto(*m_costumes[m_current_costume_idx],bs,packer);
+            ::serializeto(m_costumes[m_current_costume_idx],bs,packer);
         }
         bs.StoreBits(1,m_char_data.m_supergroup_costume);
         if(m_char_data.m_supergroup_costume)
@@ -254,6 +242,17 @@ void Character::serialize_costumes(BitStream &bs, ColorAndPartPacker *packer , b
         ::serializeto(*getCurrentCostume(),bs,packer);
     }
 }
+
+void Character::DumpSidekickInfo()
+{
+    QString msg = QString("Sidekick Info\n  has_sidekick: %1 \n  db_id: %2 \n  type: %3 ")
+            .arg(m_char_data.m_sidekick.m_has_sidekick)
+            .arg(m_char_data.m_sidekick.m_db_id)
+            .arg(m_char_data.m_sidekick.m_type);
+
+    qDebug().noquote() << msg;
+}
+
 void Character::DumpPowerPoolInfo( const PowerPool_Info &pool_info )
 {
     for (int i = 0; i < 3; i++)
@@ -266,6 +265,7 @@ void Character::DumpPowerPoolInfo( const PowerPool_Info &pool_info )
                                             .arg(pool_info.power_idx);
     }
 }
+
 void Character::DumpBuildInfo()
 {
     Character &c = *this;
@@ -275,7 +275,6 @@ void Character::DumpBuildInfo()
             + "\n  " + getClass(c)
             + "\n  map: " + getMapName(c)
             + "\n  db_id: " + QString::number(m_db_id)
-            + "\n  idx: " + QString::number(getIndex())
             + "\n  acct: " + QString::number(getAccountId())
             + "\n  lvl/clvl: " + QString::number(getLevel(c)) + "/" + QString::number(getCombatLevel(c))
             + "\n  inf: " + QString::number(getInf(c))
@@ -284,7 +283,6 @@ void Character::DumpBuildInfo()
             + "\n  afk: " + QString::number(m_char_data.m_afk)
             + "\n  description: " + getDescription(c)
             + "\n  battleCry: " + getBattleCry(c)
-            + "\n  current chat channel: " + QString::number(m_char_data.m_cur_chat_channel)
             + "\n  Last Online: " + m_char_data.m_last_online;
 
     qDebug().noquote() << msg;
@@ -295,21 +293,23 @@ void Character::DumpBuildInfo()
 void Character::dump()
 {
     DumpBuildInfo();
+    DumpSidekickInfo();
     qDebug() <<"//------------------Tray------------------";
     m_trays.dump();
     qDebug() <<"//-----------------Costume-----------------";
-    if(getCurrentCostume())
+    if(!m_costumes.empty())
         getCurrentCostume()->dump();
+    qDebug() <<"//-----------------Options-----------------";
 }
 
-void Character::recv_initial_costume( BitStream &src, ColorAndPartPacker *packer )
+void Character::recv_initial_costume( BitStream &src, const ColorAndPartPacker *packer )
 {
     assert(m_costumes.size()==0);
-    Costume *res=new Costume;
+    m_costumes.emplace_back();
     m_current_costume_idx=0;
-    ::serializefrom(*res,src,packer);
-    m_costumes.push_back(res);
+    ::serializefrom(m_costumes.back(),src,packer);
 }
+
 void serializeStats(const Parse_CharAttrib &src,BitStream &bs, bool /*sendAbsolute*/)
 {
     bs.StoreBits(1,1); // we have more data
@@ -320,6 +320,7 @@ void serializeStats(const Parse_CharAttrib &src,BitStream &bs, bool /*sendAbsolu
     bs.StorePackedBits(5,src.m_Endurance/5.0f);
     bs.StoreBits(1,0); // no more data
 }
+
 void serializeFullStats(const Parse_CharAttrib &src,BitStream &bs, bool /*sendAbsolute*/)
 {
     bs.StoreBits(1,1); // we have more data
@@ -330,6 +331,7 @@ void serializeFullStats(const Parse_CharAttrib &src,BitStream &bs, bool /*sendAb
     bs.StorePackedBits(7,src.m_Endurance);
     bs.StoreBits(1,0); // no more data
 }
+
 void serializeLevelsStats(const Character &src,BitStream &bs, bool /*sendAbsolute*/)
 {
     bs.StoreBits(1,1); // we have more data
@@ -349,7 +351,7 @@ void serializeStats(const Character &src,BitStream &bs, bool sendAbsolute)
     uint32_t field_idx=0;
     bs.StoreBits(1,1); // we have more data
     bs.StorePackedBits(1,field_idx++); // CurrentAttribs
-    serializeStats(src.m_current_attribs,bs,sendAbsolute);
+    serializeStats(src.m_char_data.m_current_attribs,bs,sendAbsolute);
     bs.StoreBits(1,1); // we have more data
     bs.StorePackedBits(1,field_idx++); // MaxAttribs
     serializeStats(src.m_max_attribs,bs,sendAbsolute);
@@ -358,12 +360,13 @@ void serializeStats(const Character &src,BitStream &bs, bool sendAbsolute)
     serializeLevelsStats(src,bs,sendAbsolute);
     bs.StoreBits(1,0); // we have no more data
 }
+
 void serializeFullStats(const Character &src,BitStream &bs, bool sendAbsolute)
 {
     uint32_t field_idx=0;
     bs.StoreBits(1,1); // we have more data
     bs.StorePackedBits(1,field_idx++); // first field is CurrentAttribs
-    serializeFullStats(src.m_current_attribs,bs,sendAbsolute);
+    serializeFullStats(src.m_char_data.m_current_attribs,bs,sendAbsolute);
     bs.StoreBits(1,1); // we have more data
     bs.StorePackedBits(1,field_idx++); // first field is MaxAttribs
     serializeFullStats(src.m_max_attribs,bs,sendAbsolute);
@@ -388,71 +391,23 @@ void Character::sendFullStats(BitStream &bs) const
     serializeFullStats(*this,bs,false);
 }
 
-void Character::sendWindows( BitStream &bs ) const
-{
-    for(uint32_t i=0; i<35; i++)
-    {
-        bs.StorePackedBits(1,i); // window index
-        sendWindow(bs);
-    }
-}
-void Character::sendTeamBuffMode(BitStream &bs) const
-{
-    bs.StoreBits(1,0);
-}
-void Character::sendDockMode(BitStream &bs) const
-{
-    bs.StoreBits(32,0); // unused on the client
-    bs.StoreBits(32,0); //
-}
-void Character::sendChatSettings(BitStream &bs) const
-{
-    //int i;
-    bs.StoreFloat(0.8f); // chat window transparency
-    bs.StorePackedBits(1,(1<<19)-1); // bitmask of channels (top window )
-    bs.StorePackedBits(1,0); // bitmask of channels (bottom )
-    bs.StorePackedBits(1,10); // selected channel, Local=10, 11 broadcast,
-/*
-    bs.StorePackedBits(1,4);
-    bs.StorePackedBits(1,5);
-    bs.StorePackedBits(1,6);
-    for(i=0; i<5; i++)
-    {
-        bs.StorePackedBits(1,1);
-        bs.StorePackedBits(1,2);
-        bs.StorePackedBits(1,3);
-        bs.StoreFloat(1.0f);
-    }
-    for(i=0; i<10; i++)
-    {
-        bs.StoreString("TestChat1");
-        bs.StorePackedBits(1,1);
-        bs.StorePackedBits(1,2);
-        bs.StorePackedBits(1,3);
-        bs.StorePackedBits(1,4);
-        bs.StorePackedBits(1,5);
-    }
-    for(i=0; i<10; i++)
-    {
-        bs.StoreString("TestChat2");
-        bs.StorePackedBits(1,1);
-    }
-*/
-}
 void Character::sendDescription(BitStream &bs) const
 {
+
+    qCDebug(logDescription) << "Sending Description & BattleCry"
+             << "\nDescription: " << m_char_data.m_character_description
+             << "\nBattle Cry: " << m_char_data.m_battle_cry;
+
     bs.StoreString(m_char_data.m_character_description);
     bs.StoreString(m_char_data.m_battle_cry);
 }
+
 void Character::sendTitles(BitStream &bs, NameFlag hasname, ConditionalFlag conditional) const
 {
-    bs.StoreBits(1, m_char_data.m_has_titles); // Does entity have titles?
-    if(!m_char_data.m_has_titles)
-        return;
-
-    if(hasname)
+    if(hasname == NameFlag::HasName)
         bs.StoreString(getName());
-    bs.StoreBits(1, m_char_data.m_has_the_prefix);       // likely an index to a title prefix ( 0 - None; 1 - The )
+
+    bs.StoreBits(1, m_char_data.m_has_the_prefix); // an index to a title prefix ( 0 - None; 1 - The )
 
     if(conditional)
     {
@@ -467,237 +422,91 @@ void Character::sendTitles(BitStream &bs, NameFlag hasname, ConditionalFlag cond
         bs.StoreString(m_char_data.m_titles[2]);             // Title 3 - yellow title (special)
     }
 }
-void Character::sendKeybinds(BitStream &bs) const
-{
-    bs.StoreString("Default"); // keybinding profile name
 
-    struct KeybindData {
-        KeybindData() : key(), mods(NO_MOD), command() {}
-        KeybindData(int k, int m, const QString &c)
-                : key(k), mods(m), command(c) {}
-        KeybindData(int k, const QString & c)
-                : key(k), mods(NO_MOD), command(c) {}
-
-        int key;
-        int mods;
-        QString command;
-    };
-
-    QMap<int,KeybindData> binds;
-    binds[1] = KeybindData(COH_INPUT_APOSTROPHE,"quickchat");           // (        Qt::Key_ParenLeft
-    binds[2] = KeybindData(COH_INPUT_MINUS,"prev_tray");                // -        Qt::Key_Minus
-    binds[3] = KeybindData(COH_INPUT_MINUS,ALT_MOD,"prev_tray_alt");    // ALT+-    Qt::AltModifier + Qt::Key_Minus
-    binds[4] = KeybindData(COH_INPUT_SLASH,"show chat$$slashchat");     // /        Qt::Key_Slash
-    binds[5] = KeybindData(COH_INPUT_0,"powexec_slot 10");   // 0    Qt::Key_0
-    binds[6] = KeybindData(COH_INPUT_1,"powexec_slot 1");    // 1    Qt::Key_1
-    binds[7] = KeybindData(COH_INPUT_2,"powexec_slot 2");    // 2    Qt::Key_2
-    binds[8] = KeybindData(COH_INPUT_3,"powexec_slot 3");    // 3    Qt::Key_3
-    binds[9] = KeybindData(COH_INPUT_4,"powexec_slot 4");    // 4    Qt::Key_4
-    binds[10] = KeybindData(COH_INPUT_5,"powexec_slot 5");   // 5    Qt::Key_5
-    binds[11] = KeybindData(COH_INPUT_6,"powexec_slot 6");   // 6    Qt::Key_6
-    binds[12] = KeybindData(COH_INPUT_7,"powexec_slot 7");   // 7    Qt::Key_7
-    binds[13] = KeybindData(COH_INPUT_8,"powexec_slot 8");   // 8    Qt::Key_8
-    binds[13] = KeybindData(COH_INPUT_9,"powexec_slot 9");   // 9    Qt::Key_9
-    //binds[14] = KeybindData(COH_INPUT_0,SHIFT_MOD,"unassigned");    // SHIFT+0   Qt::ShiftModifier + Qt::Key_0
-    binds[15] = KeybindData(COH_INPUT_1,SHIFT_MOD,"team_select 1");   // SHIFT+1   Qt::ShiftModifier + Qt::Key_1
-    binds[16] = KeybindData(COH_INPUT_2,SHIFT_MOD,"team_select 2");   // SHIFT+2   Qt::ShiftModifier + Qt::Key_2
-    binds[17] = KeybindData(COH_INPUT_3,SHIFT_MOD,"team_select 3");   // SHIFT+3   Qt::ShiftModifier + Qt::Key_3
-    binds[18] = KeybindData(COH_INPUT_4,SHIFT_MOD,"team_select 4");   // SHIFT+4   Qt::ShiftModifier + Qt::Key_4
-    binds[19] = KeybindData(COH_INPUT_5,SHIFT_MOD,"team_select 5");   // SHIFT+5   Qt::ShiftModifier + Qt::Key_5
-    binds[20] = KeybindData(COH_INPUT_6,SHIFT_MOD,"team_select 6");   // SHIFT+6   Qt::ShiftModifier + Qt::Key_6
-    binds[21] = KeybindData(COH_INPUT_7,SHIFT_MOD,"team_select 7");   // SHIFT+7   Qt::ShiftModifier + Qt::Key_7
-    binds[22] = KeybindData(COH_INPUT_8,SHIFT_MOD,"team_select 8");   // SHIFT+8   Qt::ShiftModifier + Qt::Key_8
-    //binds[23] = KeybindData(COH_INPUT_9,SHIFT_MOD,"unassigned");    // SHIFT+9   Qt::ShiftModifier + Qt::Key_9
-    binds[24] = KeybindData(COH_INPUT_0,CTRL_MOD,"powexec_alt2slot 10"); // CTRL+0   Qt::ControlModifier + Qt::Key_0
-    binds[25] = KeybindData(COH_INPUT_1,CTRL_MOD,"powexec_alt2slot 1");  // CTRL+1   Qt::ControlModifier + Qt::Key_1
-    binds[26] = KeybindData(COH_INPUT_2,CTRL_MOD,"powexec_alt2slot 2");  // CTRL+2   Qt::ControlModifier + Qt::Key_2
-    binds[27] = KeybindData(COH_INPUT_3,CTRL_MOD,"powexec_alt2slot 3");  // CTRL+3   Qt::ControlModifier + Qt::Key_3
-    binds[28] = KeybindData(COH_INPUT_4,CTRL_MOD,"powexec_alt2slot 4");  // CTRL+4   Qt::ControlModifier + Qt::Key_4
-    binds[29] = KeybindData(COH_INPUT_5,CTRL_MOD,"powexec_alt2slot 5");  // CTRL+5   Qt::ControlModifier + Qt::Key_5
-    binds[30] = KeybindData(COH_INPUT_6,CTRL_MOD,"powexec_alt2slot 6");  // CTRL+6   Qt::ControlModifier + Qt::Key_6
-    binds[31] = KeybindData(COH_INPUT_7,CTRL_MOD,"powexec_alt2slot 7");  // CTRL+7   Qt::ControlModifier + Qt::Key_7
-    binds[32] = KeybindData(COH_INPUT_8,CTRL_MOD,"powexec_alt2slot 8");  // CTRL+8   Qt::ControlModifier + Qt::Key_8
-    binds[33] = KeybindData(COH_INPUT_9,CTRL_MOD,"powexec_alt2slot 9");  // CTRL+9   Qt::ControlModifier + Qt::Key_9
-    binds[34] = KeybindData(COH_INPUT_0,ALT_MOD,"powexec_altslot 10");  // ALT+0    Qt::Key_ParenRight
-    binds[35] = KeybindData(COH_INPUT_1,ALT_MOD,"powexec_altslot 1");   // ALT+1    Qt::Key_Exclam
-    binds[36] = KeybindData(COH_INPUT_2,ALT_MOD,"powexec_altslot 2");   // ALT+2    Qt::Key_At
-    binds[37] = KeybindData(COH_INPUT_3,ALT_MOD,"powexec_altslot 3");   // ALT+3    Qt::Key_NumberSign
-    binds[38] = KeybindData(COH_INPUT_4,ALT_MOD,"powexec_altslot 4");   // ALT+4    Qt::Key_Dollar
-    binds[39] = KeybindData(COH_INPUT_5,ALT_MOD,"powexec_altslot 5");   // ALT+5    Qt::Key_Percent
-    binds[40] = KeybindData(COH_INPUT_6,ALT_MOD,"powexec_altslot 6");   // ALT+6    Qt::Key_AsciiCircum
-    binds[41] = KeybindData(COH_INPUT_7,ALT_MOD,"powexec_altslot 7");   // ALT+7    Qt::Key_Ampersand
-    binds[42] = KeybindData(COH_INPUT_8,ALT_MOD,"powexec_altslot 8");   // ALT+8    Qt::Key_Asterisk
-    binds[43] = KeybindData(COH_INPUT_9,ALT_MOD,"powexec_altslot 9");   // ALT+9    Qt::Key_ParenLeft
-    binds[44] = KeybindData(COH_INPUT_SEMICOLON,"show chat$$beginchat ;");    // ;    Qt::Key_Semicolon
-    binds[45] = KeybindData(COH_INPUT_BACKSLASH,"menu");     // \    Qt::Key_Backslash
-    binds[46] = KeybindData(COH_INPUT_A,"+left");            // A    Qt::Key_A
-    binds[47] = KeybindData(COH_INPUT_B,"++first");          // B    Qt::Key_B
-    binds[48] = KeybindData(COH_INPUT_C,"chat");             // C    Qt::Key_C
-    binds[49] = KeybindData(COH_INPUT_D,"+right");           // D    Qt::Key_D
-    binds[50] = KeybindData(COH_INPUT_E,"+turnright");       // E    Qt::Key_E
-    binds[51] = KeybindData(COH_INPUT_F,"follow");           // F    Qt::Key_F
-    //binds[52] = KeybindData(COH_INPUT_G,"unassigned");     // G    Qt::Key_G
-    binds[53] = KeybindData(COH_INPUT_H,"helpwindow");       // H    Qt::Key_H
-    //binds[54] = KeybindData(COH_INPUT_I,"unassigned");     // I    Qt::Key_I
-    //binds[55] = KeybindData(COH_INPUT_J,"unassigned");     // J    Qt::Key_J
-    //binds[56] = KeybindData(COH_INPUT_K,"unassigned");     // K    Qt::Key_K
-    //binds[57] = KeybindData(COH_INPUT_L,"unassigned");     // L    Qt::Key_L
-    binds[58] = KeybindData(COH_INPUT_M,"map");              // M    Qt::Key_M
-    binds[59] = KeybindData(COH_INPUT_N,"nav");              // N    Qt::Key_N
-    //binds[60] = KeybindData(COH_INPUT_O,"unassigned");     // O    Qt::Key_O
-    binds[61] = KeybindData(COH_INPUT_P,"powers");           // P    Qt::Key_P
-    binds[62] = KeybindData(COH_INPUT_Q,"+turnleft");        // Q    Qt::Key_Q
-    binds[63] = KeybindData(COH_INPUT_R,"++autorun");        // R    Qt::Key_R
-    binds[64] = KeybindData(COH_INPUT_S,"+backward");        // S    Qt::Key_S
-    binds[65] = KeybindData(COH_INPUT_T,"target");           // T    Qt::Key_T
-    //binds[66] = KeybindData(COH_INPUT_U,"unassigned");     // U    Qt::Key_U
-    binds[67] = KeybindData(COH_INPUT_V,"+ctm_invert");      // V    Qt::Key_V
-    binds[68] = KeybindData(COH_INPUT_W,"+forward");         // W    Qt::Key_W
-    binds[69] = KeybindData(COH_INPUT_X,"+down");            // X    Qt::Key_X
-    //binds[70] = KeybindData(COH_INPUT_Y,"unassigned");     // Y    Qt::Key_Y
-    binds[71] = KeybindData(COH_INPUT_Z,"powerexec_abort");  // Z    Qt::Key_Z
-    binds[72] = KeybindData(COH_INPUT_ESCAPE,"unselect");               // escape       Qt::Key_Escape
-    binds[73] = KeybindData(COH_INPUT_TAB,"target_enemy_next");         // tab          Qt::Key_Tab
-    binds[74] = KeybindData(COH_INPUT_TAB,SHIFT_MOD,"unassigned");      // SHIFT+TAB      Qt::Key_Backtab
-    binds[75] = KeybindData(COH_INPUT_BACKSPACE,"autoreply");           // backspace    Qt::Key_Backspace
-    binds[76] = KeybindData(COH_INPUT_RETURN,"show chat$$startchat");   // return       Qt::Key_Return
-    //binds[77] = KeybindData(COH_INPUT_RETURN,"unassigned");           // enter        Qt::Key_Enter
-    binds[78] = KeybindData(COH_INPUT_INSERT,"+lookup");                // insert       Qt::Key_Insert
-    binds[79] = KeybindData(COH_INPUT_DELETE,"+lookdown");              // delete       Qt::Key_Delete
-    binds[80] = KeybindData(COH_INPUT_PAUSE,"++screenshotui");          // pause        Qt::Key_Pause
-    //binds[81] = KeybindData(COH_INPUT_PRINT,"unassigned");            // print        Qt::Key_Print
-    binds[82] = KeybindData(COH_INPUT_SYSRQ,"screenshot");              // sysreq       Qt::Key_SysReq
-    //binds[83] = KeybindData(COH_INPUT_CLEAR,"unassigned");            // clear        Qt::Key_Clear
-    binds[84] = KeybindData(COH_INPUT_HOME,"+zoomin");                  // home         Qt::Key_Home
-    binds[85] = KeybindData(COH_INPUT_END,"+zoomout");                  // end          Qt::Key_End
-    binds[86] = KeybindData(COH_INPUT_LEFTARROW,"+turnleft");           // left         Qt::Key_Left
-    binds[87] = KeybindData(COH_INPUT_UPARROW,"+forward");              // up           Qt::Key_Up
-    binds[88] = KeybindData(COH_INPUT_RIGHTARROW,"+turnright");         // right        Qt::Key_Right
-    binds[89] = KeybindData(COH_INPUT_DOWNARROW,"+backward");           // down         Qt::Key_Down
-    binds[90] = KeybindData(COH_INPUT_PGUP,"+camrotate");               // pageup       Qt::Key_PageUp
-    binds[91] = KeybindData(COH_INPUT_PGDN,"camreset");                 // pagedown     Qt::Key_PageDown
-    //binds[92] = KeybindData(COH_INPUT_LSHIFT,"unassigned");           // shift        Qt::Key_Shift
-    binds[93] = KeybindData(COH_INPUT_LCONTROL,"+alt2tray");            // leftcontrol  Qt::Key_Control
-    //binds[94] = KeybindData(0x01000022,"unassigned");                 // windowskey   Qt::Key_Meta
-    binds[95] = KeybindData(COH_INPUT_F1,"inspexec_slot 1");            // F1   Qt::Key_F1
-    binds[96] = KeybindData(COH_INPUT_F2,"inspexec_slot 2");            // F2   Qt::Key_F2
-    binds[97] = KeybindData(COH_INPUT_F3,"inspexec_slot 3");            // F3   Qt::Key_F3
-    binds[98] = KeybindData(COH_INPUT_F4,"inspexec_slot 4");            // F4   Qt::Key_F4
-    binds[99] = KeybindData(COH_INPUT_F5,"inspexec_slot 5");            // F5   Qt::Key_F5
-    binds[100] = KeybindData(COH_INPUT_F6,"local <color white><bgcolor red>RUN!");                           // F6   Qt::Key_F6
-    binds[101] = KeybindData(COH_INPUT_F7,"say <color black><bgcolor #22aa22>Ready! $$ emote thumbsup");     // F7   Qt::Key_F7
-    binds[102] = KeybindData(COH_INPUT_F8,"local <color black><bgcolor #aaaa22>HELP! $$ emote whistle");     // F8   Qt::Key_F8
-    binds[103] = KeybindData(COH_INPUT_F9,"local <color white><bgcolor #2222aa><scale .75>level $level $archetype$$local <color white><bgcolor #2222aa>Looking for team");   // F9   Qt::Key_F9
-    binds[104] = KeybindData(COH_INPUT_F10,"say $battlecry $$ emote attack");                                 // F10  Qt::Key_F10
-    //binds[105] = KeybindData(COH_INPUT_F11,"unassigned");          // F11   Qt::Key_F11
-    //binds[106] = KeybindData(COH_INPUT_F12,"unassigned");          // F12   Qt::Key_F12
-    binds[107] = KeybindData(COH_INPUT_LEFTARROW,"+turnleft");       // directionleft    Qt::Key_Direction_L
-    binds[108] = KeybindData(COH_INPUT_RIGHTARROW,"+turnright");     // directionright   Qt::Key_Direction_R
-    binds[109] = KeybindData(COH_INPUT_SPACE,"+up");                 // space            Qt::Key_Space
-    binds[110] = KeybindData(COH_INPUT_COMMA,"show chat$$beginchat /tell $target, ");    // ,        Qt::Key_Comma
-    binds[111] = KeybindData(COH_INPUT_EQUALS,"next_tray");                              // =        Qt::Key_Equal
-    binds[112] = KeybindData(COH_INPUT_EQUALS,ALT_MOD,"next_tray_alt");                  // ALT+=    Qt::Key_Equal
-    binds[113] = KeybindData(COH_INPUT_MBUTTON,"+camrotate");                            // MBUTTON
-    binds[114] = KeybindData(COH_INPUT_LBUTTON,COH_INPUT_RBUTTON,"+forward_mouse");      // MouseChord "left and right"
-    binds[115] = KeybindData(COH_INPUT_MOUSE_SCROLL,"+camdistadjust");    // MOUSEWHEEL
-    binds[116] = KeybindData(COH_INPUT_RALT,"+alttreysticky");      // Right ALT
-    binds[117] = KeybindData(COH_INPUT_RBUTTON,"+mouse_look");      // right button
-    binds[118] = KeybindData(COH_INPUT_SPACE,"+up");                          // space    Qt::Key_Space
-    binds[119] = KeybindData(COH_INPUT_TAB,CTRL_MOD,"target_enemy_near");     // CTRL+TAB    Qt::ControlModifier + Qt::Key_Tab
-    binds[120] = KeybindData(COH_INPUT_TAB,SHIFT_MOD,"target_enemy_prev");    // SHIFT+TAB    Qt::ShiftModifier + Qt::Key_Tab
-
-    for(int i=0; i<COH_INPUT_LAST_NON_GENERIC; ++i)
-    {
-      if(binds.contains(i))
-      {
-             const KeybindData &kb(binds[i]);
-             bs.StoreString(kb.command);
-             bs.StoreBits(32,kb.key);
-             bs.StoreBits(32,kb.mods);
-      }
-      else
-      {
-             bs.StoreString("");
-             bs.StoreBits(32,0);
-             bs.StoreBits(32,0);
-      }
-    }
-
-}
 void Character::sendFriendList(BitStream &bs) const
 {
-    bs.StorePackedBits(1,0);
-    bs.StorePackedBits(1,0);
-}
-void Character::sendOptionsFull(BitStream &bs) const
-{
-    bs.StoreFloat(m_options.mouselook_scalefactor);
-    bs.StoreFloat(m_options.degrees_for_turns);
-    bs.StoreBits(1,m_options.mouse_invert);
-    bs.StoreBits(1,m_options.m_ChatWindow_fading);
-    bs.StoreBits(1,m_options.m_NavWindow_fading);
-    bs.StoreBits(1,m_options.showTooltips);
-    bs.StoreBits(1,m_options.allowProfanity);
-    bs.StoreBits(1,m_options.chatBallons);//g_ChatBalloons
+    const FriendsList *fl(&m_char_data.m_friendlist);
+    bs.StorePackedBits(1,1); // v2 = force_update
+    bs.StorePackedBits(1,fl->m_friends_count);
 
-    bs.StoreBits(3,m_options.showArchetype);
-    bs.StoreBits(3,m_options.showSupergroup);
-    bs.StoreBits(3,m_options.showPlayerName);
-    bs.StoreBits(3,m_options.showPlayerBars);
-    bs.StoreBits(3,m_options.showVillainName);
-    bs.StoreBits(3,m_options.showVillainBars);
-    bs.StoreBits(3,m_options.showPlayerReticles);
-    bs.StoreBits(3,m_options.showVillainReticles);
-    bs.StoreBits(3,m_options.showAssistReticles);
-
-    bs.StorePackedBits(5,m_options.chatFontSize); // value only used on client if >=5
-}
-
-void Character::sendOptions( BitStream &bs ) const
-{
-    bs.StoreBits(1,m_full_options);
-    if(m_full_options)
+    for(int i=0; i<fl->m_friends_count; ++i)
     {
-        sendOptionsFull(bs);
-    }
-    else
-    {
-        bs.StoreBits(1,m_options.mouse_invert);
-        bs.StoreFloat(m_options.mouselook_scalefactor);
-        bs.StoreFloat(m_options.degrees_for_turns);
-    }
-    bs.StoreBits(1,m_first_person_view_toggle);
-}
-#define CLIENT_OPT(type,var)\
-    ClientOption {#var,{{type,&var}} }
+        bs.StoreBits(1,fl->m_has_friends); // if false, client will skip this iteration
+        bs.StorePackedBits(1,fl->m_friends[i].m_db_id);
+        bs.StoreBits(1,fl->m_friends[i].m_online_status);
+        bs.StoreString(fl->m_friends[i].m_name);
+        bs.StorePackedBits(1,fl->m_friends[i].m_class_idx);
+        bs.StorePackedBits(1,fl->m_friends[i].m_origin_idx);
 
-void ClientOptions::init()
-{
-    m_opts = {
-        CLIENT_OPT(ClientOption::t_int,control_debug),
-        CLIENT_OPT(ClientOption::t_int,no_strafe),
-        CLIENT_OPT(ClientOption::t_int,alwaysmobile),
-        CLIENT_OPT(ClientOption::t_int,repredict),
-        CLIENT_OPT(ClientOption::t_int,neterrorcorrection),
-        CLIENT_OPT(ClientOption::t_float,speed_scale),
-        CLIENT_OPT(ClientOption::t_int,svr_lag),
-        CLIENT_OPT(ClientOption::t_int,svr_lag_vary),
-        CLIENT_OPT(ClientOption::t_int,svr_pl),
-        CLIENT_OPT(ClientOption::t_int,svr_oo_packets),
-        CLIENT_OPT(ClientOption::t_int,client_pos_id),
-        CLIENT_OPT(ClientOption::t_int,atest0),
-        CLIENT_OPT(ClientOption::t_int,atest1),
-        CLIENT_OPT(ClientOption::t_int,atest2),
-        CLIENT_OPT(ClientOption::t_int,atest3),
-        CLIENT_OPT(ClientOption::t_int,atest4),
-        CLIENT_OPT(ClientOption::t_int,atest5),
-        CLIENT_OPT(ClientOption::t_int,atest6),
-        CLIENT_OPT(ClientOption::t_int,atest7),
-        CLIENT_OPT(ClientOption::t_int,atest8),
-        CLIENT_OPT(ClientOption::t_int,atest9),
-        CLIENT_OPT(ClientOption::t_int,predict),
-        CLIENT_OPT(ClientOption::t_int,notimeout),
-        CLIENT_OPT(ClientOption::t_int,selected_ent_server_index),
-    };
+        if(!fl->m_friends[i].m_online_status)
+            continue; // if friend is offline, the rest is skipped
+
+        bs.StorePackedBits(1,fl->m_friends[i].m_map_idx);
+        bs.StoreString(fl->m_friends[i].m_mapname);
+    }
 }
-#undef ADD_OPT
+
+void toActualCostume(const GameAccountResponseCostumeData &src, Costume &tgt)
+{
+    tgt.skin_color = src.skin_color;
+    tgt.serializeFromDb(src.m_serialized_data);
+    tgt.m_non_default_costme_p = false;
+}
+
+void fromActualCostume(const Costume &src,GameAccountResponseCostumeData &tgt)
+{
+    tgt.skin_color = src.skin_color;
+    src.serializeToDb(tgt.m_serialized_data);
+}
+
+bool toActualCharacter(const GameAccountResponseCharacterData &src, Character &tgt,PlayerData &player)
+{
+    CharacterData &  cd(tgt.m_char_data);
+
+    tgt.m_db_id      = src.m_db_id;
+    tgt.m_account_id = src.m_account_id;
+    tgt.setName(src.m_name);
+
+    serializeFromQString(cd,src.m_serialized_chardata);
+    serializeFromQString(player,src.m_serialized_player_data);
+
+    for (const GameAccountResponseCostumeData &costume : src.m_costumes)
+    {
+        tgt.m_costumes.emplace_back();
+        CharacterCostume &main_costume(tgt.m_costumes.back());
+        toActualCostume(costume, main_costume);
+        // appearance related.
+        main_costume.m_body_type = src.m_costumes.back().m_body_type;
+        main_costume.setSlotIndex(costume.m_slot_index);
+        main_costume.setCharacterId(costume.m_character_id);
+    }
+    return true;
+}
+
+bool fromActualCharacter(const Character &src,const PlayerData &player, GameAccountResponseCharacterData &tgt)
+{
+    const CharacterData &  cd(src.m_char_data);
+
+    tgt.m_db_id      = src.m_db_id;
+    tgt.m_account_id = src.m_account_id;
+    tgt.m_name = src.getName();
+
+    serializeToQString(cd, tgt.m_serialized_chardata);
+    serializeToQString(player, tgt.m_serialized_player_data);
+
+    for (const CharacterCostume &costume : src.m_costumes)
+    {
+        tgt.m_costumes.emplace_back();
+        GameAccountResponseCostumeData &main_costume(tgt.m_costumes.back());
+        fromActualCostume(costume, main_costume);
+        // appearance related.
+        main_costume.m_body_type = src.m_costumes.back().m_body_type;
+        main_costume.m_slot_index = costume.getSlotIndex();
+        main_costume.m_character_id= costume.getCharacterId();
+        main_costume.m_height = costume.m_height;
+        main_costume.m_physique = costume.m_physique;
+    }
+    return true;
+}
+
+//! @}

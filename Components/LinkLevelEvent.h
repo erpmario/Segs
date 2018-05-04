@@ -1,8 +1,14 @@
+/*
+ * SEGS - Super Entity Game Server
+ * http://www.segs.io/
+ * Copyright (c) 2006 - 2018 SEGS Team (see Authors.txt)
+ * This software is licensed! (See License.txt for details)
+ */
+
 #pragma once
 #include <cassert>
 #include <ace/INET_Addr.h>
 #include "SEGSEvent.h"
-
 
 class ConnectEvent : public SEGSEvent
 {
@@ -22,8 +28,8 @@ public:
 class DisconnectEvent : public SEGSEvent
 {
 public:
-    DisconnectEvent(EventProcessor *ev_src) : SEGSEvent(SEGS_EventTypes::evDisconnect,ev_src)
+    uint64_t m_session_token;
+    DisconnectEvent(uint64_t token) : SEGSEvent(SEGS_EventTypes::evDisconnect,nullptr),m_session_token(token)
     {
-        assert(ev_src);
     }
 };

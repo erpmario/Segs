@@ -1,19 +1,19 @@
 /*
- * Super Entity Game Server
- * http://segs.sf.net/
- * Copyright (c) 2006 - 2016 Super Entity Game Server Team (see Authors.txt)
+ * SEGS - Super Entity Game Server
+ * http://www.segs.io/
+ * Copyright (c) 2006 - 2018 SEGS Team (see Authors.txt)
  * This software is licensed! (See License.txt for details)
- *
  */
+
 #pragma once
 
 #include <QtSql/QSqlDatabase>
 class DbTransactionGuard
 {
     QSqlDatabase &m_db;
-    bool proper_commit;
+    bool proper_commit = false;
 public:
-    DbTransactionGuard(QSqlDatabase &db) : m_db(db),proper_commit(false)
+    DbTransactionGuard(QSqlDatabase &db) : m_db(db)
     {
         m_db.transaction();
     }

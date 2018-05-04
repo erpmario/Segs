@@ -1,15 +1,17 @@
 /*
-* Super Entity Game Server Project
-* http://segs.sf.net/
-* Copyright (c) 2006 - 2016 Super Entity Game Server Team (see Authors.txt)
-* This software is licensed! (See License.txt for details)
-*
+ * SEGS - Super Entity Game Server
+ * http://www.segs.io/
+ * Copyright (c) 2006 - 2018 SEGS Team (see Authors.txt)
+ * This software is licensed! (See License.txt for details)
+ */
 
-*/
+/*!
+ * @addtogroup MapServer Projects/CoX/Servers/MapServer
+ * @{
+ */
 
 #include "NetCommandManager.h"
-#include "MapClient.h"
-#include "AdminServer/AccountInfo.h"
+#include "MapClientSession.h"
 
 #include <vector>
 
@@ -57,6 +59,7 @@ static void FillCommands()
 //    cmd_manager->addCommand(new NetCommand(9,"noentcollisions",args));
 //    cmd_manager->addCommand(new NetCommand(9,"pvpmap",args));
 }
+
 int NetCommand::serializefrom( BitStream &bs )
 {
     for(size_t i=0; i<m_arguments.size(); i++)
@@ -68,7 +71,7 @@ int NetCommand::serializefrom( BitStream &bs )
                 int res=bs.GetPackedBits(1);
                 if(m_arguments[i].targetvar)
                     *((int *)m_arguments[i].targetvar) = res;
-                ACE_DEBUG ((LM_DEBUG,ACE_TEXT ("CommRecv %s:arg%d : %d\n"),qPrintable(m_name),i,res));
+                qDebug("CommRecv %s:arg%d : %d", qPrintable(m_name),i,res);
                 break;
             }
             case 2:
@@ -76,19 +79,19 @@ int NetCommand::serializefrom( BitStream &bs )
             {
                 QString res;
                 bs.GetString(res); // postprocessed
-                ACE_DEBUG ((LM_DEBUG,ACE_TEXT ("CommRecv %s:arg%d : %s\n"),qPrintable(m_name),i,qPrintable(res)));
+                qDebug("CommRecv %s:arg%d : %s", qPrintable(m_name),i,qPrintable(res));
                 break;
             }
             case 3:
             {
                 float res = bs.GetFloat();
-                ACE_DEBUG ((LM_DEBUG,ACE_TEXT ("CommRecv %s:arg%d : %f\n"),qPrintable(m_name),i,res));
+                qDebug("CommRecv %s:arg%d : %f", qPrintable(m_name),i,res);
                 break;
             }
             case 5:
             {
                 float res1 = normalizedCircumferenceToFloat(bs.GetBits(14),14);
-                ACE_DEBUG ((LM_DEBUG,ACE_TEXT ("CommRecv %s:arg%d : %s\n"),qPrintable(m_name),i,res1));
+                qDebug("CommRecv %s:arg%d : %s", qPrintable(m_name),i,res1);
                 break;
             }
             case 6:
@@ -98,7 +101,7 @@ int NetCommand::serializefrom( BitStream &bs )
                 float res1 = bs.GetFloat();
                 float res2 = bs.GetFloat();
                 float res3 = bs.GetFloat();
-                ACE_DEBUG ((LM_DEBUG,ACE_TEXT ("CommRecv %s:arg%d : %f,%f,%f\n"),qPrintable(m_name),i,res1,res2,res3));
+                qDebug("CommRecv %s:arg%d : %f,%f,%f", qPrintable(m_name),i,res1,res2,res3);
                 break;
             }
         }
@@ -117,7 +120,8 @@ NetCommand * NetCommandManager::getCommandByName( const QString &name )
 {
     return m_name_to_command[name];
 }
-void NetCommandManager::serializeto(BitStream &tgt, const vNetCommand &commands, const vNetCommand &commands2 )
+
+void NetCommandManager::serializeto(BitStream &tgt, const vNetCommand &commands, const vNetCommand &/*commands2*/ )
 {
     if(commands.size()==0)
     {
@@ -125,7 +129,7 @@ void NetCommandManager::serializeto(BitStream &tgt, const vNetCommand &commands,
     }
     else
     {
-        for(uint32_t i=0; i<(uint32_t)commands.size(); i++)
+        for(uint32_t i=0; i<commands.size(); i++)
         {
             tgt.StorePackedBits(1,i+1);
             tgt.StoreString(commands[i]->m_name);
@@ -141,7 +145,8 @@ void NetCommandManager::serializeto(BitStream &tgt, const vNetCommand &commands,
 //    }
     tgt.StorePackedBits(1,~0u);
 }
-void NetCommandManager::SendCommandShortcuts( MapClient *client,BitStream &tgt,const std::vector<NetCommand *> &commands2 )
+
+void NetCommandManager::SendCommandShortcuts( MapClientSession *client,BitStream &tgt,const std::vector<NetCommand *> &commands2 )
 {
     static bool initialized=false;
     if(!initialized)  {
@@ -149,7 +154,7 @@ void NetCommandManager::SendCommandShortcuts( MapClient *client,BitStream &tgt,c
         FillCommands();
     }
 
-    switch(client->account_info().access_level())
+    switch(client->m_access_level)
     {
         case 0:
         case 1:
@@ -165,6 +170,11 @@ void NetCommandManager::SendCommandShortcuts( MapClient *client,BitStream &tgt,c
             serializeto(tgt,m_commands_level0,commands2);
             break;
         default:
-            assert(false);
+            // add shortcuts to client's shortcut map.
+            for (size_t i = 0; i<m_commands_level0.size(); ++i)
+                client->AddShortcut(i, m_commands_level0[i]);
+            serializeto(tgt, m_commands_level0, commands2);
     }
 }
+
+//! @}

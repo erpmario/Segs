@@ -1,17 +1,17 @@
 /*
- * Super Entity Game Server
- * http://segs.sf.net/
- * Copyright (c) 2006 - 2017 Super Entity Game Server Team (see Authors.txt)
+ * SEGS - Super Entity Game Server
+ * http://www.segs.io/
+ * Copyright (c) 2006 - 2018 SEGS Team (see Authors.txt)
  * This software is licensed! (See License.txt for details)
- *
  */
+
 #pragma once
 
 #include <stdint.h>
 #include <cstring>
 
 // Warning those classes aren't thread-safe!
-// maybe this should derive from ACE_Data_Block/Message_Block ?
+// NOTE: maybe this should derive from ACE_Data_Block/Message_Block ?
 
 // Template functions are part of include file to avoid the need of explicit instantiation of templates.
 class GrowingBuffer

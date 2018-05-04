@@ -1,10 +1,13 @@
 /*
- * Super Entity Game Server Project
- * http://segs.sf.net/
- * Copyright (c) 2006 - 2016 Super Entity Game Server Team (see Authors.txt)
+ * SEGS - Super Entity Game Server
+ * http://www.segs.io/
+ * Copyright (c) 2006 - 2018 SEGS Team (see Authors.txt)
  * This software is licensed! (See License.txt for details)
- *
+ */
 
+/*!
+ * @addtogroup MapServer Projects/CoX/Servers/MapServer
+ * @{
  */
 
 #include "MapEvents.h"
@@ -33,7 +36,7 @@ MapLinkEvent *MapEventFactory::EventFromStream(BitStream &bs)
         case 9: return new NewEntity;
             //   default: return new MapUnknownRequest;
     }
-    ACE_DEBUG ((LM_WARNING,ACE_TEXT ("Unhandled event type %d\n"),opcode));
+    qCWarning(logMapEvents, "Unhandled event type %d", opcode);
     return nullptr;
 }
 
@@ -49,8 +52,10 @@ MapLinkEvent *MapEventFactory::CommandEventFromStream(BitStream & bs)
             // otherwise treat as idle
             return new IdleEvent;
         case 1: return new MiniMapState;
-        //case 2: return new Unknown2; // TODO: Tray 7?? Cycle over to tray 7 to receive this opcode.
+        //case 2: return new Unknown2; // TODO: What is this?
+        //case 3: return new RefreshWindows; // TODO: Refreshes all windows? Issue #268
         case 4: return new ClientResumedRendering;
+        case 7: return new InteractWithEntity;
         case 8: return new SwitchTray;
         case 9: return new EnterDoor;
         case 11: return new SetDestination;
@@ -58,7 +63,13 @@ MapLinkEvent *MapEventFactory::CommandEventFromStream(BitStream & bs)
         case 16: return new ChatDividerMoved;
         case 17: return new InspirationDockMode;
         case 18: return new PowersDockMode;
+        case 19: return new SetKeybind;
+        case 20: return new RemoveKeybind;
+        case 21: return new ResetKeybinds;
+        case 22: return new SelectKeybindProfile;
         case 29: return new ActivateInspiration;
+        case 30: return new SetDefaultPowerSend;
+        case 31: return new SetDefaultPower;
         case 32: return new UnqueueAll;
         case 33: return new AbortQueuedPower;
         case 36: return new ChangeStance;
@@ -69,12 +80,11 @@ MapLinkEvent *MapEventFactory::CommandEventFromStream(BitStream & bs)
         case 56: return new EntityInfoRequest;
         case 62: return new LocationVisited;
         case 64: return new SwitchViewPoint;
-        case 65: return new ClientSettings;
+        case 65: return new SaveClientOptions;
         case 67: return new DescriptionAndBattleCry;
-        /*case 21: new KeybindProfileReset; */
-        /*case 22: new KeybindProfileSelected; */
     }
-    ACE_DEBUG ((LM_WARNING,ACE_TEXT ("Unhandled command event type %d\n"),opcode));
+    qCWarning(logMapEvents, "Unhandled command event type %d", opcode);
     return nullptr;
-
 }
+
+//! @}

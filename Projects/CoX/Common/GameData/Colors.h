@@ -1,3 +1,10 @@
+/*
+ * SEGS - Super Entity Game Server
+ * http://www.segs.io/
+ * Copyright (c) 2006 - 2018 SEGS Team (see Authors.txt)
+ * This software is licensed! (See License.txt for details)
+ */
+
 #pragma once
 #include <glm/vec3.hpp>
 #include <glm/vec4.hpp>
@@ -9,7 +16,7 @@ struct ARGB
     {
         uint8_t v[4];
         uint32_t val;
-        struct { uint8_t a,r,g,b;};
+        struct { uint8_t a,r,g,b;} argb;
     };
     ARGB() {}
     ARGB(uint32_t _v) { val =_v;}
@@ -58,46 +65,47 @@ struct RGBA
     {
         uint8_t v[4];
         uint32_t val;
-        struct { uint8_t r,g,b,a;};
-        struct { uint8_t x,y,z,w;};
+        struct { uint8_t r,g,b,a;} rgba;
+        struct { uint8_t x,y,z,w;} xyzw ;
     };
-    RGBA(uint8_t r_,uint8_t g_,uint8_t b_,uint8_t a_) : r(r_),g(g_),b(b_),a(a_) {}
+    RGBA(uint8_t r_,uint8_t g_,uint8_t b_,uint8_t a_) {
+        rgba.r = r_;
+        rgba.g = g_;
+        rgba.b = b_;
+        rgba.a = a_;
+    }
     RGBA() {}
     RGBA(uint32_t v)  {
-        a = v & 0xFF;
+        rgba.a = v & 0xFF;
         v>>=8;
-        b = v & 0xFF;
+        rgba.b = v & 0xFF;
         v>>=8;
-        g = v & 0xFF;
+        rgba.g = v & 0xFF;
         v>>=8;
-        r = v & 0xFF;
+        rgba.r = v & 0xFF;
     }
     RGBA &operator=(uint32_t v) {
-        a = v & 0xFF;
+        rgba.a = v & 0xFF;
         v>>=8;
-        b = v & 0xFF;
+        rgba.b = v & 0xFF;
         v>>=8;
-        g = v & 0xFF;
+        rgba.g = v & 0xFF;
         v>>=8;
-        r = v & 0xFF;
+        rgba.r = v & 0xFF;
         return *this;
     }
     RGBA &operator=(RGB v) {
-        b = v.B;
-        g = v.G;
-        r = v.R;
+        rgba.b = v.B;
+        rgba.g = v.G;
+        rgba.r = v.R;
         return *this;
     }
-    bool rgb_are_zero() const { return !(r|g|b); }
+    bool rgb_are_zero() const { return !(rgba.r|rgba.g|rgba.b); }
     uint8_t &operator[](uint8_t idx) { return v[idx];}
-    glm::vec4 toFloats() const { return glm::vec4(r/255.0f,g/255.0f,b/255.0f,a/255.0f); }
-    glm::vec3 to3Floats() const { return glm::vec3(r/255.0f,g/255.0f,b/255.0f); }
-    RGB toRGB() const { return {r,g,b}; }
+    glm::vec4 toFloats() const { return glm::vec4(
+                    rgba.r/255.0f,rgba.g/255.0f,rgba.b/255.0f,rgba.a/255.0f); }
+    glm::vec3 to3Floats() const { return glm::vec3(
+                    rgba.r/255.0f,rgba.g/255.0f,rgba.b/255.0f); }
+    RGB toRGB() const { return {rgba.r,rgba.g,rgba.b}; }
 };
-
-//static_assert(offsetof(RGBA,r)==0,"");
-//static_assert(offsetof(RGBA,g)==1,"");
-//static_assert(offsetof(RGBA,b)==2,"");
-//static_assert(offsetof(RGBA,a)==3,"");
-
 static_assert(sizeof(RGBA)==4,"sizeof(RGBA)==4");

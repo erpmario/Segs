@@ -6,8 +6,5 @@ ADD_SUBDIRECTORY(Servers)
 ADD_SUBDIRECTORY(GameData)
 ADD_SUBDIRECTORY(AuthProtocol)
 ADD_SUBDIRECTORY(PasswordHasher)
-<<<<<<< HEAD
 ADD_SUBDIRECTORY(MapLoader)
-=======
 ADD_SUBDIRECTORY(Runtime)
->>>>>>> upstream/master

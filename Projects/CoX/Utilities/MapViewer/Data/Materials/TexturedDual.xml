@@ -1,4 +1,0 @@
-<material>
-    <technique name="Techniques/DiffDual.xml"/>
-    <cull value="ccw"/>
-</material>

@@ -66,14 +66,16 @@ MapServer::~MapServer()
 
 bool MapServer::Run()
 {
-    assert(m_owner_game_server_id!=255);
-    if(!d->m_runtime_data.read_runtime_data("./data/bin/"))
-    {
-        return false;
-    }
-    assert(d->m_manager.num_templates()>0); // we have to have a world to run
+    assert(m_owner_game_server_id != INVALID_GAME_SERVER_ID);
 
-    qInfo() << "Server running... awaiting client connections."; // best place for this?
+    if (!d->m_runtime_data.read_runtime_data(RUNTIME_DATA_PATH))
+        return false;
+
+    assert(d->m_manager.num_templates() > 0);
+
+    qInfo() << "MapServer" << m_id << "now listening on" << m_base_listen_point.get_host_addr() << ":"
+            << m_base_listen_point.get_port_number();
+
     return true;
 }
 
@@ -94,6 +96,8 @@ bool MapServer::ReadConfigAndRestart()
         qDebug() << "Config file is missing 'listen_addr' entry in MapServer group, will try to use default";
     if(!config.contains(QStringLiteral("location_addr")))
         qDebug() << "Config file is missing 'location_addr' entry in MapServer group, will try to use default";
+    if(!config.contains(QStringLiteral("player_fade_in")))
+        qDebug() << "Config file is missing 'player_fade_in' entry in MapServer group, will try to use default";
 
     QString listen_addr = config.value("listen_addr","127.0.0.1:7003").toString();
     QString location_addr = config.value("location_addr","127.0.0.1:7003").toString();
@@ -107,6 +111,15 @@ bool MapServer::ReadConfigAndRestart()
     if(!parseAddress(location_addr,m_base_location))
     {
         qCritical() << "Badly formed IP address" << location_addr;
+        return false;
+    }
+
+    bool ok = true;
+    QVariant fade_in_variant = config.value("player_fade_in","380.0");
+    d->m_runtime_data.m_player_fade_in = fade_in_variant.toFloat(&ok);
+    if(!ok)
+    {
+        qCritical() << "Badly formed float for 'player_fade_in': " << fade_in_variant.toString();
         return false;
     }
 

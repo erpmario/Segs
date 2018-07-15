@@ -399,6 +399,7 @@ void storePowerInfoUpdate(const EntitiesResponse &/*src*/,BitStream &bs)
     std::vector<Power> powers;
     for(Power &p : powers)
     {
+        Q_UNUSED(p);
         bs.StoreBits(1,1); // have power to send.
         uint32_t category_idx=0;
         uint32_t powerset_idx=0;
@@ -507,6 +508,10 @@ void sendServerControlState(const EntitiesResponse &src,BitStream &bs)
 void sendServerPhysicsPositions(const EntitiesResponse &src,BitStream &bs)
 {
     Entity * target = src.m_client->m_ent;
+    //TODO: remove this after we have proper physics processing
+    if(target->m_full_update_count>0)
+        target->m_full_update_count--;
+    target->m_full_update = target->m_full_update_count!=0;
 
     bs.StoreBits(1,target->m_full_update);
     if( !target->m_full_update )

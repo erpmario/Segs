@@ -30,9 +30,7 @@
 #include "Common/Servers/HandlerLocator.h"
 #include "Common/Servers/MessageBus.h"
 #include "Common/GameData/CoHMath.h"
-<<<<<<< HEAD
 #include "MapLoader/CoHSceneConverter.h"
-=======
 #include "SlashCommand.h"
 #include "GameData/playerdata_definitions.h"
 #include "GameData/entitydata_serializers.h"
@@ -42,7 +40,6 @@
 #include "Logging.h"
 
 #include <ace/Reactor.h>
->>>>>>> upstream/master
 
 #include <QtCore/QDebug>
 #include <QRegularExpression>
@@ -59,12 +56,14 @@ namespace
         State_Transmit_Timer = 2,
         Session_Reaper_Timer   = 3,
         Link_Idle_Timer   = 4,
+        Sync_Service_Update_Timer = 5
     };
 
     const ACE_Time_Value reaping_interval(0,1000*1000);
     const ACE_Time_Value link_is_stale_if_disconnected_for(0,5*1000*1000);
     const ACE_Time_Value link_update_interval(0,500*1000);
     const ACE_Time_Value world_update_interval(0,1000*1000/WORLD_UPDATE_TICKS_PER_SECOND);
+    const ACE_Time_Value sync_service_update_interval(0, 30000*1000);
     const ACE_Time_Value resend_interval(0,250*1000);
     const ACE_Time_Value maximum_time_without_packets(2,0);
     const constexpr int MinPacketsToAck=5;
@@ -98,7 +97,7 @@ using namespace std;
 MapInstance::MapInstance(const QString &mapdir_path, const ListenAndLocationAddresses &listen_addr)
     : m_data_path(mapdir_path), m_world_update_timer(nullptr), m_addresses(listen_addr)
 {
-    m_world = new World(m_entities);
+    m_world = new World(m_entities, serverData().m_player_fade_in);
     m_scripting_interface.reset(new ScriptingEngine);
     m_endpoint = new MapLinkEndpoint(m_addresses.m_listen_addr); //,this
     m_endpoint->set_downstream(this);
@@ -137,6 +136,7 @@ void MapInstance::start(const QString &scenegraph_path)
         m_npc_generators.m_generators["Door_Left_Ind_01"] = {"Door_Left_Ind_01",EntType::DOOR,{}};
 
         bool scene_graph_loaded = false;
+        Q_UNUSED(scene_graph_loaded);
         TIMED_LOG({
                 m_map_scenegraph = new MapSceneGraph;
                 scene_graph_loaded = m_map_scenegraph->loadFromFile("./data/geobin/" + scenegraph_path);
@@ -158,15 +158,16 @@ void MapInstance::start(const QString &scenegraph_path)
         QDir::current().mkpath(m_data_path);
         qWarning() << "FAILED to load map instance data. Check to see if file exists:"<< m_data_path;
     }
-<<<<<<< HEAD
-    m_world_update_timer = new SEGSTimer(this,(void *)World_Update_Timer,world_update_interval,false); // world simulation ticks
-    m_resend_timer = new SEGSTimer(this,(void *)State_Transmit_Timer,resend_interval,false); // state broadcast ticks
-    CoHSceneGraph * scene = new CoHSceneGraph;
-    loadSceneGraph(*scene, "C:\\SEGS Dev\\build-master-erpmario-Desktop_Qt_5_10_0_MinGW_32bit-Debug-MapViewer\\out\\exploded pigg-bits\\geobin\\object_library\\Buildings\\Style\\deco\\Deco1\\Deco1.bin");
-=======
+
+    // create a GameDbSyncService
+    m_sync_service = new GameDBSyncService(m_entities);
+    m_sync_service->set_db_handler(m_game_server_id);
+    m_sync_service->activate();
+
     m_world_update_timer.reset(new SEGSTimer(this,(void *)World_Update_Timer,world_update_interval,false)); // world simulation ticks
     m_resend_timer.reset(new SEGSTimer(this,(void *)State_Transmit_Timer,resend_interval,false)); // state broadcast ticks
     m_link_timer.reset(new SEGSTimer(this,(void *)Link_Idle_Timer,link_update_interval,false));
+    m_sync_service_timer.reset(new SEGSTimer(this,(void *)Sync_Service_Update_Timer,sync_service_update_interval,false));
     m_session_store.create_reaping_timer(this,Session_Reaper_Timer,reaping_interval); // session cleaning
 }
 
@@ -177,7 +178,6 @@ void MapInstance::start(const QString &scenegraph_path)
 void MapInstance::spin_down()
 {
     qDebug() << "spin down ? I don't know how to stop!";
->>>>>>> upstream/master
 }
 
 ///
@@ -192,11 +192,13 @@ bool MapInstance::spin_up_for(uint8_t game_server_id,uint32_t owner_id,uint32_t 
     m_instance_id = instance_id;
     if (ACE_Reactor::instance()->register_handler(m_endpoint,ACE_Event_Handler::READ_MASK) == -1)
     {
-        qWarning() << "MapInstance::spin_up_for faile to register_handler, port already open";
+        qWarning() << "MapInstance::spin_up_for failed to register_handler, port already open";
         return false;
     }
     if (m_endpoint->open() == -1) // will register notifications with current reactor
         ACE_ERROR_RETURN ((LM_ERROR, "(%P|%t) MapInstance: ServerEndpoint::open\n"),false);
+
+    qInfo() << "Spun up MapInstance" << m_instance_id << "for MapServer" << m_owner_id;
 
     return true;
 }
@@ -205,6 +207,10 @@ MapInstance::~MapInstance()
 {
     delete m_world;
     delete m_endpoint;
+
+    // one last update on entities before termination of MapInstance, and in turn the SyncService as well
+    m_sync_service->updateEntities();
+    delete m_sync_service;
 }
 
 void MapInstance::on_client_connected_to_other_server(ClientConnectedMessage */*ev*/)
@@ -254,7 +260,12 @@ void MapInstance::reap_stale_links()
 
 void MapInstance::enqueue_client(MapClientSession *clnt)
 {
-    m_world->addPlayer(clnt->m_ent);
+    // m_world stores a ref to m_entities, so its entity mgr is updated as well
+    m_entities.InsertPlayer(clnt->m_ent);
+
+    // m_sync_service has its own entity mgr, so add to its own mgr separately
+    m_sync_service->addPlayer(clnt->m_ent);
+
     //m_queued_clients.push_back(clnt); // enter this client on the waiting list
 }
 
@@ -450,7 +461,6 @@ void MapInstance::on_client_quit(ClientQuit*ev)
         abortLogout(session.m_ent);
     else
         session.m_ent->beginLogout(10);
-
 }
 
 void MapInstance::on_link_lost(SEGSEvent *ev)
@@ -465,8 +475,13 @@ void MapInstance::on_link_lost(SEGSEvent *ev)
     HandlerLocator::getGame_Handler(m_game_server_id)
             ->putq(new ClientDisconnectedMessage({session_token}));
 
+    m_sync_service->updateEntity(ent);
     m_entities.removeEntityFromActiveList(ent);
+
+    //m_sync_service->removePlayer(ent);
+
     m_session_store.session_link_lost(session_token);
+    m_session_store.remove_by_token(session_token, session.auth_id());
      // close the link by puting an disconnect event there
     lnk->putq(new DisconnectEvent(session_token));
 }
@@ -482,8 +497,13 @@ void MapInstance::on_disconnect(DisconnectRequest *ev)
         //todo: notify all clients about entity removal
     HandlerLocator::getGame_Handler(m_game_server_id)
             ->putq(new ClientDisconnectedMessage({session_token}));
+
+    m_sync_service->updateEntity(ent);
     m_entities.removeEntityFromActiveList(ent);
+    // m_sync_service->removePlayer(ent);
+
     m_session_store.session_link_lost(session_token);
+    m_session_store.remove_by_token(session_token, session.auth_id());
 
     lnk->putq(new DisconnectResponse);
     lnk->putq(new DisconnectEvent(session_token)); // this should work, event if different threads try to do it in parallel
@@ -621,10 +641,10 @@ void MapInstance::on_create_map_entity(NewEntity *ev)
         e->m_char->m_account_id = map_session.auth_id();
         e->m_client = &map_session;
         map_session.m_ent = e;
-        if(m_new_player_spawns.empty())
-            e->m_entity_data.m_pos = glm::vec3(128.0f,16.0f,-198.0f); // Atlas Park Starting Location
-        else
-            e->m_entity_data.m_pos = glm::vec3(m_new_player_spawns[rand()%m_new_player_spawns.size()][3]);
+        glm::vec3 spawn_pos = glm::vec3(128.0f,16.0f,-198.0f);
+        if(!m_new_player_spawns.empty())
+            spawn_pos = glm::vec3(m_new_player_spawns[rand()%m_new_player_spawns.size()][3]);
+        forcePosition(*e,spawn_pos);
         e->m_entity_data.m_access_level = map_session.m_access_level;
         // new characters are transmitted nameless, use the name provided in on_expect_client
         e->m_char->setName(map_session.m_name);
@@ -712,6 +732,9 @@ void MapInstance::on_timeout(TimerEvent *ev)
         case Session_Reaper_Timer:
             reap_stale_links();
             break;
+        case Sync_Service_Update_Timer:
+            m_sync_service->updateEntities();
+            break;
     }
 }
 
@@ -764,9 +787,11 @@ void MapInstance::on_input_state(InputState *st)
     if (st->m_data.has_input_commit_guess)
         ent->m_input_ack = st->m_data.m_send_id;
     ent->inp_state = st->m_data;
+
     // Set Target
-    ent->m_target_idx = st->m_target_idx;
-    ent->m_assist_target_idx = st->m_assist_target_idx;
+    if(st->m_has_target && (getTargetIdx(*ent) != st->m_target_idx))
+        setTarget(*ent, st->m_target_idx);
+
     // Set Orientation
     if(st->m_data.m_orientation_pyr.p || st->m_data.m_orientation_pyr.y || st->m_data.m_orientation_pyr.r)
     {
@@ -1818,7 +1843,7 @@ void MapInstance::on_client_options(SaveClientOptions * ev)
     //LinkBase * lnk = (LinkBase *)ev->src();
 
     Entity *ent = session.m_ent;
-    markEntityForDbStore(ent,DbStoreFlags::Options);
+    markEntityForDbStore(ent,DbStoreFlags::PlayerData);
     ent->m_player->m_options = ev->data;
 }
 
@@ -1897,7 +1922,8 @@ void MapInstance::on_switch_tray(SwitchTray *ev)
     ent->m_player->m_gui.m_tray1_number = ev->tray1_num;
     ent->m_player->m_gui.m_tray2_number = ev->tray2_num;
     ent->m_player->m_gui.m_tray3_number = ev->tray_unk1;
-    ent->m_db_store_flags |= uint32_t(DbStoreFlags::PlayerData);
+    markEntityForDbStore(ent, DbStoreFlags::PlayerData);
+
     qCDebug(logMapEvents) << "Saving Tray States to GUISettings. Tray1:" << ev->tray1_num+1 << "Tray2:" << ev->tray2_num+1 << "Unk1:" << ev->tray_unk1;
     // TODO: need to load powers for new tray.
     qCWarning(logMapEvents) << "TODO: Need to load powers for new trays";
@@ -1932,6 +1958,7 @@ const MapServerData &MapInstance::serverData() const
 
 glm::vec3 MapInstance::closest_safe_location(glm::vec3 v) const
 {
+    Q_UNUSED(v);
     if(!m_new_player_spawns.empty())
     {
         return m_new_player_spawns.front()[3];

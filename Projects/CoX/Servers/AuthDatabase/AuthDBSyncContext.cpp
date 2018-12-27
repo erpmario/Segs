@@ -12,8 +12,8 @@
 
 #include "AuthDBSyncContext.h"
 
-#include "AuthDBSyncEvents.h"
-#include "PasswordHasher/PasswordHasher.h"
+#include "Messages/AuthDatabase/AuthDBSyncEvents.h"
+#include "PasswordHasher.h"
 #include "Settings.h"
 
 #include <ace/Thread.h>
@@ -24,6 +24,8 @@
 #include <QSqlError>
 #include <QSqlQuery>
 #include <cassert>
+
+using namespace SEGSEvents;
 
 namespace
 {
@@ -108,8 +110,14 @@ bool AuthDbSyncContext::loadAndConfigure()
         qCritical().noquote() << "Failed to open database:" << dbname;
         return false;
     }
+<<<<<<< HEAD
     int db_version = getDbVersion(*m_db);
     if (db_version != required_db_version)
+=======
+
+    int64_t db_version = getDatabaseVersion(*m_db);
+    if (db_version != REQUIRED_DB_VERSION)
+>>>>>>> upstream/master
     {
         qCritical() << "Wrong db version:" << db_version
                     << "this GameDatabase service requires:" << required_db_version;

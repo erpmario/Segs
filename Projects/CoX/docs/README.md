@@ -26,7 +26,7 @@ REQUIREMENTS AND NOTES
 
 SEGS requires:
 
-- A copy of the CoH client from Issue 0 (release) version 0.22. This can be found through various sources online, or via magnet link: 
+- A copy of the CoH client from Issue 1 (beta) version 0.22. This can be found through various sources online, or via magnet link:
   `magnet:?xt=urn:btih:c2e7e0aa72004594337d73ae6a305242e23d815f`
 
 For more detailed version of this guide or for help, visit our discord or forums by using the links below:
@@ -121,8 +121,11 @@ If you're looking to compile SEGS from source, or need to do an advanced manual 
 
       SEGS requires several CoH files to run. Clicking this button will prompt you to enter the path to your CoX directory. Once selected, it will copy several files from the CoX directory, and extract a portion of those files to your `SEGS/data/` subdirectory. These `.bin` files are required by SEGS to load CoX maps, and spawn NPCs. Once completed, SEGSAdmin will clean up any unnecessary files.
 
-
-4. **(Optional) Add User Account**
+  4. **Ensure proper ports are open on any firewalls**
+      Make sure the following Network Ports are open: TCP 443, TCP 2104, TCP 2016, and UDP 7000-7200
+     These are the same ports that the original game client and now, SEGS uses as well.
+      
+5. **(Optional) Add User Account**
 
    Optionally, you may elect to add additional user accounts by clicking this button on the left side of the SEGSAdmin window. SEGSAdmin will prompt you to enter a username, password, and access level for each account. A user's access level is used to determine their permissions within your server. Please reference this chart:
    
@@ -145,6 +148,8 @@ Enjoy!
 
 HELP AND MORE INFORMATION
 ------
+
+Make sure the following Network Ports are open: TCP 443, TCP 2104, TCP 2016, and UDP 7000-7200
 
 For Help with installation and configuration of your local SEGS, please see visit us on discord at https://discord.segs.io/
 

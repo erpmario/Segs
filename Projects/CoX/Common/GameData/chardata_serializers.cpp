@@ -11,22 +11,19 @@
  */
 
 #include "chardata_serializers.h"
-
-#include "chardata_definitions.h"
-#include "DataStorage.h"
+#include "GameData/CharacterData.h"
 #include "serialization_common.h"
+#include "serialization_types.h"
+#include "GameData/Powers.h"
+
+#include "DataStorage.h"
+#include "trays_serializers.h"
 #include "attrib_serializers.h"
 #include <QDebug>
 
-const constexpr uint32_t Friend::class_version;
-const constexpr uint32_t FriendsList::class_version;
-const constexpr uint32_t Sidekick::class_version;
-const constexpr uint32_t CharacterData::class_version;
-CEREAL_CLASS_VERSION(Friend, Friend::class_version)                // register Friend struct version
-CEREAL_CLASS_VERSION(FriendsList, FriendsList::class_version)      // register FriendList struct version
-CEREAL_CLASS_VERSION(Sidekick, Sidekick::class_version)            // register Sidekick struct version
-CEREAL_CLASS_VERSION(CharacterData, CharacterData::class_version)  // register CharacterData class version
+#include "Logging.h"
 
+<<<<<<< HEAD
 template<class Archive>
 void serialize(Archive &archive, Friend &fr, uint32_t const version)
 {
@@ -108,15 +105,13 @@ void serialize(Archive &archive, CharacterData &cd, uint32_t const version)
     archive(cereal::make_nvp("FriendList",cd.m_friendlist));
     archive(cereal::make_nvp("CurrentAttribs", cd.m_current_attribs));
 }
+=======
+>>>>>>> upstream/master
 
 void saveTo(const CharacterData &target, const QString &baseName, bool text_format)
 {
     commonSaveTo(target,"CharacterData",baseName,text_format);
 }
 
-template
-void serialize<cereal::JSONOutputArchive>(cereal::JSONOutputArchive & archive, CharacterData & m, uint32_t const version);
-template
-void serialize<cereal::JSONInputArchive>(cereal::JSONInputArchive & archive, CharacterData & m, uint32_t const version);
 
 //! @}

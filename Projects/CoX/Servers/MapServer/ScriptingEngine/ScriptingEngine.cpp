@@ -25,6 +25,10 @@ int luaopen_os(lua_State *)
     return 0;
 }
 
+/*!
+ * @brief Default constructor. Creates a new ScriptingEnginePrivate instance and assigns it to the corresponding member
+ *        variable.
+ */
 ScriptingEngine::ScriptingEngine()
 {
      m_private.reset(new ScriptingEnginePrivate);
@@ -32,6 +36,10 @@ ScriptingEngine::ScriptingEngine()
 
 ScriptingEngine::~ScriptingEngine() = default;
 
+/*!
+ * @brief Calls each of the three register functions in turn: register_GenericTypes, register_SpawnerTypes, and
+ *        register_CharacterTypes.
+ */
 void ScriptingEngine::registerTypes()
 {
     register_GenericTypes();
